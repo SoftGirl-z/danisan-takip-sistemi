@@ -22,6 +22,7 @@ import {
     saveProfile,
     getProfile
 } from './firebase-config.js';
+import { checkTrial, markTrialStart } from './trial.js';
 
 // ========================================
 // GLOBAL VARIABLES
@@ -72,6 +73,17 @@ window.addEventListener('load', async function() {
         if (userDisplayEl)  userDisplayEl.style.display  = 'flex';
         if (guestDisplayEl) guestDisplayEl.style.display = 'none';
         if (userNameEl)     userNameEl.textContent        = user.email || 'Kullanıcı';
+
+        // Trial kontrolü
+        await markTrialStart(user.uid);
+        const trial = await checkTrial(user.uid);
+        if (trial.expired) {
+            showPaywall();
+            return;
+        }
+        if (!trial.isPaid && trial.daysLeft <= 3) {
+            showTrialBanner(trial.daysLeft);
+        }
 
         // Veri yükle
         await loadDataFromFirestore(user.uid);
@@ -2521,3 +2533,66 @@ window.importBackup = importBackup;
 
 // Uygulama başlarken fiyat şablonlarını yükle
 (async () => { await loadPriceTemplates(); })();
+
+// ========================================
+// TRIAL - PAYWALL & BANNER
+// ========================================
+
+function showPaywall() {
+    document.body.innerHTML = `
+        <div style="
+            min-height:100vh; display:flex; align-items:center; justify-content:center;
+            font-family:'DM Sans',system-ui,sans-serif; background:#faf7f2; padding:20px;
+        ">
+            <div style="
+                background:white; border-radius:24px; padding:48px 40px; max-width:440px;
+                text-align:center; box-shadow:0 12px 40px rgba(0,0,0,.1);
+            ">
+                <div style="font-size:3rem;margin-bottom:16px;">🌿</div>
+                <h2 style="font-size:1.6rem;font-weight:700;color:#1e2730;margin-bottom:8px;">
+                    Deneme süreniz doldu
+                </h2>
+                <p style="color:#6b7a86;margin-bottom:32px;line-height:1.6;">
+                    1 aylık ücretsiz denemeniz tamamlandı.<br>
+                    Tüm verileriniz güvende, devam etmek için bizimle iletişime geçin.
+                </p>
+                <a href="mailto:info@studiopro.app?subject=Abonelik%20Hakkında" style="
+                    display:inline-block; padding:14px 32px;
+                    background:#1e2730; color:white; border-radius:10px;
+                    font-weight:600; text-decoration:none; font-size:15px;
+                ">
+                    Abonelik için iletişime geç →
+                </a>
+                <p style="margin-top:16px;font-size:12px;color:#9ca3af;">
+                    veya <a href="mailto:info@studiopro.app" style="color:#7a9e94;">info@studiopro.app</a>
+                </p>
+            </div>
+        </div>
+    `;
+}
+
+function showTrialBanner(daysLeft) {
+    if (document.getElementById('trial-banner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'trial-banner';
+    banner.style.cssText = `
+        position:fixed; bottom:20px; right:20px; z-index:9999;
+        background:#1e2730; color:white; padding:12px 20px;
+        border-radius:12px; font-family:'DM Sans',system-ui,sans-serif;
+        font-size:14px; box-shadow:0 8px 24px rgba(0,0,0,.2);
+        display:flex; align-items:center; gap:10px;
+    `;
+    banner.innerHTML = `
+        <span>⏳</span>
+        <span>Deneme süreniz: <strong>${daysLeft} gün</strong> kaldı</span>
+        <a href="mailto:info@studiopro.app?subject=Abonelik%20Hakkında"
+           style="color:#7a9e94;font-weight:600;text-decoration:none;margin-left:4px;">
+            Devam et →
+        </a>
+        <button onclick="this.parentElement.remove()" style="
+            background:none;border:none;color:rgba(255,255,255,.5);
+            cursor:pointer;font-size:16px;padding:0;margin-left:4px;
+        ">✕</button>
+    `;
+    document.body.appendChild(banner);
+}
