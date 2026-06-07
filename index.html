@@ -1,497 +1,800 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Danışan Takip — Studio</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Studio Pro — Stüdyo, Klinik ve Merkez Yönetim Sistemi</title>
+<meta name="description" content="Danışan takibi, seans yönetimi, otomatik WhatsApp hatırlatmaları ve profesyonel raporlar. Stüdyonuzu dijitalleştirin.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+/* ─── Reset & Base ─── */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --sage:     #7a9e94;
+  --sage-dk:  #4d7169;
+  --sage-lt:  #b8d4ce;
+  --cream:    #faf7f2;
+  --warm:     #f5efe6;
+  --blush:    #e8b4b8;
+  --lav:      #b8a9d4;
+  --ink:      #1e2730;
+  --ink2:     #3d4a56;
+  --stone:    #6b7a86;
+  --border:   #e2dbd3;
+}
+html { scroll-behavior:smooth; }
+body {
+  font-family:'DM Sans',system-ui,sans-serif;
+  background:var(--cream);
+  color:var(--ink);
+  line-height:1.65;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ─── Animations ─── */
+@keyframes fadeUp   { from{opacity:0;transform:translateY(28px)} to{opacity:1;transform:none} }
+@keyframes fadeIn   { from{opacity:0} to{opacity:1} }
+@keyframes float    { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+@keyframes shimmer  { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+@keyframes spin     { to{transform:rotate(360deg)} }
+@keyframes pulse    { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+.reveal { opacity:0; transform:translateY(24px); transition:opacity .7s ease, transform .7s ease; }
+.reveal.visible { opacity:1; transform:none; }
+
+/* ─── Nav ─── */
+nav {
+  position:fixed; top:0; left:0; right:0; z-index:100;
+  padding:16px 40px;
+  display:flex; justify-content:space-between; align-items:center;
+  transition:all .3s ease;
+}
+nav.scrolled {
+  background:rgba(250,247,242,.94);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  padding:12px 40px;
+}
+.nav-logo {
+  display:flex; align-items:center; gap:10px;
+  font-family:'Cormorant Garamond',serif;
+  font-size:1.5rem; font-weight:600; color:var(--ink);
+  text-decoration:none;
+}
+.nav-logo-icon {
+  width:36px; height:36px;
+  background:linear-gradient(135deg,var(--sage-lt),var(--sage));
+  border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px;
+}
+.nav-links { display:flex; gap:32px; align-items:center; }
+.nav-links a {
+  font-size:14px; font-weight:500; color:var(--stone);
+  text-decoration:none; transition:color .2s;
+}
+.nav-links a:hover { color:var(--ink); }
+.nav-cta {
+  padding:10px 22px;
+  background:var(--ink);
+  color:white;
+  border-radius:8px;
+  font-size:14px; font-weight:600;
+  text-decoration:none;
+  transition:all .2s;
+}
+.nav-cta:hover { background:var(--sage-dk); transform:translateY(-1px); }
+
+/* ─── Hero ─── */
+.hero {
+  min-height:100vh;
+  display:flex; align-items:center;
+  padding:120px 40px 80px;
+  position:relative;
+  overflow:hidden;
+}
+.hero-bg {
+  position:absolute; inset:0; z-index:0;
+  background:
+    radial-gradient(ellipse 80% 60% at 70% 30%, rgba(122,158,148,.12) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 60% at 20% 80%, rgba(184,169,212,.10) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(232,180,184,.07) 0%, transparent 60%);
+}
+.hero-grid {
+  max-width:1200px; margin:0 auto; width:100%;
+  display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:center;
+  position:relative; z-index:1;
+}
+.hero-badge {
+  display:inline-flex; align-items:center; gap:8px;
+  background:rgba(122,158,148,.1);
+  border:1px solid rgba(122,158,148,.3);
+  padding:6px 14px; border-radius:99px;
+  font-size:12px; font-weight:600; color:var(--sage-dk);
+  margin-bottom:20px;
+  animation:fadeUp .6s ease both;
+}
+.hero-badge::before {
+  content:''; width:6px; height:6px;
+  background:var(--sage); border-radius:50%;
+  animation:pulse 2s infinite;
+}
+.hero-title {
+  font-family:'Cormorant Garamond',serif;
+  font-size:clamp(2.6rem,5vw,4rem);
+  font-weight:600; line-height:1.1;
+  color:var(--ink);
+  margin-bottom:20px;
+  animation:fadeUp .6s .1s ease both;
+}
+.hero-title em { font-style:italic; color:var(--sage-dk); }
+.hero-sub {
+  font-size:1.05rem; color:var(--stone);
+  max-width:480px; margin-bottom:36px;
+  animation:fadeUp .6s .2s ease both;
+}
+.hero-actions {
+  display:flex; gap:12px; flex-wrap:wrap;
+  animation:fadeUp .6s .3s ease both;
+}
+.btn-hero-primary {
+  padding:14px 28px;
+  background:var(--ink);
+  color:white; border-radius:10px;
+  font-size:15px; font-weight:600;
+  text-decoration:none;
+  transition:all .25s;
+  display:inline-flex; align-items:center; gap:8px;
+}
+.btn-hero-primary:hover { background:var(--sage-dk); transform:translateY(-2px); box-shadow:0 8px 24px rgba(77,113,105,.3); }
+.btn-hero-secondary {
+  padding:14px 24px;
+  background:transparent;
+  color:var(--ink); border-radius:10px;
+  font-size:15px; font-weight:500;
+  text-decoration:none; border:1.5px solid var(--border);
+  transition:all .25s;
+  display:inline-flex; align-items:center; gap:8px;
+}
+.btn-hero-secondary:hover { border-color:var(--sage); background:rgba(122,158,148,.06); }
+.hero-trust {
+  display:flex; align-items:center; gap:12px;
+  margin-top:28px; font-size:13px; color:var(--stone);
+  animation:fadeUp .6s .4s ease both;
+}
+.hero-stars { color:#f59e0b; letter-spacing:1px; font-size:14px; }
+
+/* Hero visual */
+.hero-visual {
+  position:relative;
+  animation:fadeUp .8s .2s ease both;
+}
+.hero-phone {
+  width:100%;
+  background:var(--ink);
+  border-radius:32px;
+  padding:12px;
+  box-shadow:0 40px 80px rgba(30,39,48,.25), 0 8px 32px rgba(30,39,48,.15);
+  position:relative;
+  max-width:340px;
+  margin:0 auto;
+}
+.hero-phone::before {
+  content:''; position:absolute; top:20px; left:50%; transform:translateX(-50%);
+  width:80px; height:5px; background:rgba(255,255,255,.15); border-radius:99px; z-index:10;
+}
+.hero-screen {
+  background:var(--cream);
+  border-radius:22px;
+  overflow:hidden;
+  padding:16px;
+}
+.app-header-mock {
+  background:white;
+  border-radius:12px;
+  padding:12px 14px;
+  margin-bottom:10px;
+  display:flex; align-items:center; gap:10px;
+  box-shadow:0 2px 8px rgba(0,0,0,.06);
+}
+.mock-avatar { width:32px; height:32px; background:linear-gradient(135deg,var(--sage-lt),var(--sage)); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; }
+.mock-title { font-size:13px; font-weight:700; color:var(--ink); }
+.mock-sub   { font-size:10px; color:var(--stone); }
+.mock-stats { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+.mock-stat {
+  background:white; border-radius:10px; padding:10px 12px;
+  box-shadow:0 2px 6px rgba(0,0,0,.05);
+}
+.mock-stat-num { font-size:1.4rem; font-weight:700; color:var(--ink); font-family:'Cormorant Garamond',serif; }
+.mock-stat-lbl { font-size:10px; color:var(--stone); text-transform:uppercase; letter-spacing:.04em; }
+.mock-card {
+  background:white; border-radius:10px; padding:12px 14px; margin-bottom:8px;
+  box-shadow:0 2px 6px rgba(0,0,0,.05);
+}
+.mock-name { font-size:13px; font-weight:600; color:var(--ink); margin-bottom:4px; }
+.mock-badge {
+  display:inline-block; padding:2px 8px; border-radius:99px;
+  font-size:10px; font-weight:600;
+}
+.badge-green { background:rgba(122,158,148,.15); color:var(--sage-dk); }
+.badge-orange { background:rgba(232,180,184,.2); color:#b05060; }
+.mock-row { display:flex; justify-content:space-between; font-size:11px; color:var(--stone); margin-top:6px; }
+
+/* Floating notif */
+.float-notif {
+  position:absolute; right:-30px; top:40px;
+  background:white; border-radius:12px; padding:10px 14px;
+  box-shadow:0 8px 24px rgba(0,0,0,.12);
+  font-size:12px; min-width:180px;
+  border-left:3px solid var(--sage);
+  animation:float 4s ease-in-out infinite;
+}
+.float-notif-2 {
+  position:absolute; left:-30px; bottom:60px;
+  background:white; border-radius:12px; padding:10px 14px;
+  box-shadow:0 8px 24px rgba(0,0,0,.12);
+  font-size:12px; min-width:170px;
+  border-left:3px solid var(--blush);
+  animation:float 4s 1.5s ease-in-out infinite;
+}
+
+/* ─── Social proof bar ─── */
+.proof-bar {
+  background:var(--ink);
+  padding:16px 40px;
+  display:flex; justify-content:center; align-items:center; gap:48px;
+  flex-wrap:wrap;
+}
+.proof-item {
+  display:flex; align-items:center; gap:10px;
+  color:rgba(255,255,255,.7); font-size:13px; font-weight:500;
+}
+.proof-icon { font-size:18px; opacity:.8; }
+.proof-num  { color:white; font-weight:700; font-size:15px; }
+
+/* ─── Section base ─── */
+section { padding:100px 40px; }
+.section-inner { max-width:1200px; margin:0 auto; }
+.section-label {
+  display:inline-block; font-size:11px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.1em;
+  color:var(--sage-dk); margin-bottom:12px;
+}
+.section-title {
+  font-family:'Cormorant Garamond',serif;
+  font-size:clamp(2rem,4vw,2.8rem);
+  font-weight:600; color:var(--ink); line-height:1.15;
+  margin-bottom:16px;
+}
+.section-sub { font-size:1rem; color:var(--stone); max-width:540px; }
+
+/* ─── Features ─── */
+.features-grid {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:24px; margin-top:56px;
+}
+.feature-card {
+  background:white; border-radius:20px; padding:28px 26px;
+  border:1px solid var(--border);
+  transition:all .3s ease;
+  position:relative; overflow:hidden;
+}
+.feature-card::after {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg,rgba(122,158,148,.04) 0%,transparent 100%);
+  opacity:0; transition:opacity .3s;
+}
+.feature-card:hover { transform:translateY(-4px); box-shadow:0 16px 40px rgba(30,39,48,.1); }
+.feature-card:hover::after { opacity:1; }
+.feature-icon {
+  width:48px; height:48px; border-radius:14px; margin-bottom:18px;
+  display:flex; align-items:center; justify-content:center; font-size:22px;
+}
+.icon-sage    { background:rgba(122,158,148,.15); }
+.icon-blush   { background:rgba(232,180,184,.15); }
+.icon-lav     { background:rgba(184,169,212,.15); }
+.icon-warm    { background:rgba(232,196,124,.15); }
+.icon-teal    { background:rgba(94,190,172,.15); }
+.icon-blue    { background:rgba(123,168,208,.15); }
+.feature-title { font-size:1rem; font-weight:700; color:var(--ink); margin-bottom:8px; }
+.feature-desc  { font-size:14px; color:var(--stone); line-height:1.6; }
+
+/* ─── How it works ─── */
+.how-grid {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:0; margin-top:56px;
+  position:relative;
+}
+.how-grid::after {
+  content:''; position:absolute; top:32px; left:12.5%; right:12.5%;
+  height:1px; background:linear-gradient(90deg,transparent,var(--border),var(--border),transparent);
+  z-index:0;
+}
+.how-step { text-align:center; padding:0 16px; position:relative; z-index:1; }
+.step-num {
+  width:64px; height:64px; border-radius:50%; margin:0 auto 16px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Cormorant Garamond',serif; font-size:1.6rem; font-weight:600;
+  background:white; border:2px solid var(--border); color:var(--sage-dk);
+  box-shadow:0 4px 16px rgba(0,0,0,.07);
+}
+.step-title { font-size:15px; font-weight:600; color:var(--ink); margin-bottom:6px; }
+.step-desc  { font-size:13px; color:var(--stone); line-height:1.6; }
+
+/* ─── Pricing ─── */
+#pricing { background:var(--warm); }
+.pricing-grid {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:24px; margin-top:56px; align-items:start;
+}
+.price-card {
+  background:white; border-radius:24px; padding:32px 28px;
+  border:1.5px solid var(--border);
+  transition:all .3s; position:relative;
+}
+.price-card.featured {
+  background:var(--ink);
+  border-color:var(--ink);
+  transform:scale(1.04);
+  box-shadow:0 24px 60px rgba(30,39,48,.2);
+}
+.price-card:not(.featured):hover { transform:translateY(-4px); box-shadow:0 12px 36px rgba(0,0,0,.1); }
+.price-tag {
+  position:absolute; top:-12px; left:50%; transform:translateX(-50%);
+  background:linear-gradient(135deg,var(--sage),var(--sage-dk));
+  color:white; padding:4px 16px; border-radius:99px;
+  font-size:11px; font-weight:700; letter-spacing:.05em;
+  white-space:nowrap;
+}
+.price-name { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; margin-bottom:10px; }
+.price-card:not(.featured) .price-name { color:var(--stone); }
+.price-card.featured .price-name { color:rgba(255,255,255,.6); }
+.price-amount {
+  font-family:'Cormorant Garamond',serif;
+  font-size:3rem; font-weight:600; line-height:1; margin-bottom:4px;
+}
+.price-card:not(.featured) .price-amount { color:var(--ink); }
+.price-card.featured .price-amount { color:white; }
+.price-period { font-size:13px; margin-bottom:24px; }
+.price-card:not(.featured) .price-period { color:var(--stone); }
+.price-card.featured .price-period { color:rgba(255,255,255,.5); }
+.price-features { list-style:none; display:flex; flex-direction:column; gap:10px; margin-bottom:28px; }
+.price-features li { display:flex; align-items:center; gap:9px; font-size:14px; }
+.price-card:not(.featured) .price-features li { color:var(--ink2); }
+.price-card.featured .price-features li { color:rgba(255,255,255,.85); }
+.price-features li::before {
+  content:'✓'; width:18px; height:18px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700;
+}
+.price-card:not(.featured) .price-features li::before { background:rgba(122,158,148,.15); color:var(--sage-dk); }
+.price-card.featured .price-features li::before { background:rgba(255,255,255,.15); color:white; }
+.price-features li.dim::before { content:'—'; background:transparent; color:var(--stone); }
+.price-features li.dim { opacity:.5; }
+.btn-price-primary {
+  display:block; width:100%; padding:13px;
+  background:var(--ink); color:white; border-radius:10px;
+  text-align:center; font-size:14px; font-weight:600; text-decoration:none;
+  transition:all .2s;
+}
+.btn-price-primary:hover { background:var(--sage-dk); }
+.price-card.featured .btn-price-primary {
+  background:white; color:var(--ink);
+}
+.price-card.featured .btn-price-primary:hover { background:var(--sage-lt); }
+.btn-price-outline {
+  display:block; width:100%; padding:13px;
+  background:transparent; color:var(--stone); border-radius:10px;
+  text-align:center; font-size:14px; font-weight:600; text-decoration:none;
+  border:1.5px solid var(--border); transition:all .2s;
+}
+.btn-price-outline:hover { border-color:var(--sage); color:var(--sage-dk); }
+
+/* ─── Testimonials ─── */
+.testimonials-grid {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:24px; margin-top:56px;
+}
+.testimonial-card {
+  background:white; border-radius:20px; padding:28px;
+  border:1px solid var(--border);
+}
+.t-stars { color:#f59e0b; font-size:14px; margin-bottom:12px; letter-spacing:2px; }
+.t-text { font-size:14px; color:var(--ink2); line-height:1.7; margin-bottom:16px; font-style:italic; }
+.t-author { display:flex; align-items:center; gap:10px; }
+.t-avatar {
+  width:36px; height:36px; border-radius:50%;
+  background:linear-gradient(135deg,var(--sage-lt),var(--lav));
+  display:flex; align-items:center; justify-content:center; font-size:16px;
+}
+.t-name { font-size:13px; font-weight:600; color:var(--ink); }
+.t-role { font-size:12px; color:var(--stone); }
+
+/* ─── CTA ─── */
+.cta-section {
+  background:var(--ink);
+  padding:100px 40px;
+  text-align:center;
+  position:relative; overflow:hidden;
+}
+.cta-section::before {
+  content:''; position:absolute; inset:0;
+  background:radial-gradient(ellipse 60% 80% at 50% 50%, rgba(122,158,148,.15) 0%, transparent 60%);
+}
+.cta-title {
+  font-family:'Cormorant Garamond',serif;
+  font-size:clamp(2rem,5vw,3.2rem); font-weight:600; color:white; line-height:1.1;
+  margin-bottom:16px; position:relative;
+}
+.cta-title em { color:var(--sage-lt); font-style:italic; }
+.cta-sub { font-size:1rem; color:rgba(255,255,255,.6); margin-bottom:36px; position:relative; }
+.cta-actions { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; position:relative; }
+.btn-cta-white {
+  padding:14px 28px; background:white; color:var(--ink);
+  border-radius:10px; font-size:15px; font-weight:600; text-decoration:none;
+  transition:all .25s; display:inline-flex; align-items:center; gap:8px;
+}
+.btn-cta-white:hover { background:var(--sage-lt); transform:translateY(-2px); }
+.btn-cta-outline {
+  padding:14px 24px; background:transparent; color:rgba(255,255,255,.8);
+  border-radius:10px; font-size:15px; font-weight:500; text-decoration:none;
+  border:1.5px solid rgba(255,255,255,.2); transition:all .25s;
+}
+.btn-cta-outline:hover { border-color:rgba(255,255,255,.5); color:white; }
+
+/* ─── Footer ─── */
+footer {
+  background:var(--ink); border-top:1px solid rgba(255,255,255,.06);
+  padding:40px 40px 28px;
+}
+.footer-inner {
+  max-width:1200px; margin:0 auto;
+  display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;
+}
+.footer-logo { color:white; font-family:'Cormorant Garamond',serif; font-size:1.3rem; font-weight:600; }
+.footer-links { display:flex; gap:24px; }
+.footer-links a { color:rgba(255,255,255,.5); font-size:13px; text-decoration:none; transition:color .2s; }
+.footer-links a:hover { color:rgba(255,255,255,.8); }
+.footer-copy { color:rgba(255,255,255,.3); font-size:12px; }
+
+/* ─── Responsive ─── */
+@media (max-width: 900px) {
+  nav { padding:14px 24px; }
+  nav.scrolled { padding:10px 24px; }
+  .nav-links { display:none; }
+  .hero { padding:100px 24px 60px; }
+  .hero-grid { grid-template-columns:1fr; gap:40px; }
+  .hero-visual { order:-1; }
+  .hero-phone { max-width:280px; }
+  .float-notif, .float-notif-2 { display:none; }
+  section { padding:70px 24px; }
+  .features-grid { grid-template-columns:1fr 1fr; }
+  .how-grid { grid-template-columns:1fr 1fr; gap:32px; }
+  .how-grid::after { display:none; }
+  .pricing-grid { grid-template-columns:1fr; }
+  .price-card.featured { transform:none; }
+  .testimonials-grid { grid-template-columns:1fr; }
+  .proof-bar { gap:24px; padding:14px 24px; }
+  .cta-section { padding:70px 24px; }
+  footer { padding:28px 24px 20px; }
+  .footer-inner { flex-direction:column; text-align:center; }
+}
+@media (max-width: 580px) {
+  .features-grid { grid-template-columns:1fr; }
+  .hero-title { font-size:2.2rem; }
+}
+</style>
 </head>
 <body>
 
-<div class="container">
+<!-- Nav -->
+<nav id="nav">
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-icon">🌿</div>
+    Studio Pro
+  </a>
+  <div class="nav-links">
+    <a href="#features">Özellikler</a>
+    <a href="#how">Nasıl Çalışır</a>
+    <a href="#pricing">Fiyatlar</a>
+    <a href="#contact">İletişim</a>
+    <a href="login.html" class="nav-cta">Ücretsiz Dene →</a>
+  </div>
+</nav>
 
-  <!-- ══════════════════ HEADER ══════════════════ -->
-  <div class="header">
-    <div class="header-inner">
-      <div class="header-top">
-        <div class="header-brand">
-          <div class="brand-icon" id="brandIcon">🌿</div>
-          <div class="brand-text">
-            <h1 id="brandName">Danışan Takip</h1>
-            <p id="brandTagline">Fizyoterapi · Pilates · Yoga</p>
-          </div>
-        </div>
-
-        <div class="header-actions">
-          <!-- Settings button (always visible) -->
-          <button class="btn btn-ghost btn-sm" onclick="openSettings()" title="İşletme Ayarları" style="padding:8px 10px;">
-            ⚙️
-          </button>
-
-          <!-- Logged in user -->
-          <div id="userDisplay" style="display:none; align-items:center; gap:10px;">
-            <div class="user-pill">
-              <div class="avatar">👤</div>
-              <span id="currentUserName">Kullanıcı</span>
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid">
+    <div>
+      <div class="hero-badge">🌿 Stüdyonuza, kliniğinize, merkezinize özel</div>
+      <h1 class="hero-title">
+        Stüdyonuzu<br>
+        <em>dijitalleştirin,</em><br>
+        danışanlarınıza<br>odaklanın.
+      </h1>
+      <p class="hero-sub">
+        Danışan takibi, otomatik WhatsApp hatırlatmaları, paket yönetimi ve profesyonel raporlar. Hepsi tek bir uygulamada.
+      </p>
+      <div class="hero-actions">
+        <a href="login.html" class="btn-hero-primary">Ücretsiz Başla <span>→</span></a>
+        <a href="#features" class="btn-hero-secondary">Özellikleri Gör</a>
+      </div>
+      <div class="hero-trust">
+        <span class="hero-stars">🚀</span>
+        <span>Şu an <strong>beta</strong> — ilk kullananlar arasına katıl, ilk 1 ay ücretsiz</span>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="hero-phone">
+        <div class="hero-screen">
+          <div class="app-header-mock">
+            <div class="mock-avatar">🌿</div>
+            <div>
+              <div class="mock-title">Studio Pro</div>
+              <div class="mock-sub">Pilates & Yoga Merkezi</div>
             </div>
-            <button class="btn btn-secondary btn-sm" onclick="logoutUser()">Çıkış</button>
           </div>
-          <!-- Guest -->
-          <div id="guestDisplay">
-            <button class="btn btn-primary btn-sm" onclick="window.location.href='login.html'">🔐 Giriş Yap</button>
+          <div class="mock-stats">
+            <div class="mock-stat">
+              <div class="mock-stat-num">38</div>
+              <div class="mock-stat-lbl">Danışan</div>
+            </div>
+            <div class="mock-stat">
+              <div class="mock-stat-num">142</div>
+              <div class="mock-stat-lbl">Seans</div>
+            </div>
+          </div>
+          <div class="mock-card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div>
+                <div class="mock-name">Ayşe Kaya</div>
+                <span class="mock-badge badge-green">Aktif</span>
+                <span class="mock-badge badge-orange" style="margin-left:4px;">3 seans kaldı</span>
+              </div>
+            </div>
+            <div class="mock-row">
+              <span>📱 0532 xxx xx xx</span>
+              <span>💰 500 ₺ borç</span>
+            </div>
+          </div>
+          <div class="mock-card">
+            <div class="mock-name">Fatma Demir</div>
+            <span class="mock-badge badge-green">Aktif</span>
+            <div class="mock-row">
+              <span>📅 Bugün 14:00</span>
+              <span>✅ Ödeme tamam</span>
+            </div>
           </div>
         </div>
       </div>
-
-      <!-- Tabs -->
-      <div class="tabs">
-        <button class="tab active" onclick="switchTab('clients')">👥 Danışanlar</button>
-        <button class="tab" onclick="switchTab('calendar')">📅 Takvim</button>
-        <button class="tab" onclick="switchTab('packages')">📦 Paketler</button>
-        <button class="tab" onclick="switchTab('finance')">💰 Finans</button>
-        <button class="tab" onclick="switchTab('pricelist')">🏷️ Fiyat Listesi</button>
+      <div class="float-notif">
+        💬 <strong>WhatsApp</strong><br>
+        <span style="color:#6b7a86;font-size:11px;">Yarın 3 seans hatırlatması gönderildi</span>
       </div>
-    </div>
-
-    <!-- Quick actions -->
-    <div class="quick-actions">
-      <button class="btn btn-primary btn-sm" onclick="openAddClientModal()">
-        <span>＋</span> Danışan Ekle
-      </button>
-      <button class="btn btn-success btn-sm" onclick="openAddSessionModal()">
-        <span>＋</span> Seans Ekle
-      </button>
-      <button class="btn btn-lavender btn-sm" onclick="openAddPackageModal()">
-        <span>📦</span> Paket Ekle
-      </button>
-      <button class="btn btn-secondary btn-sm" onclick="openDashboard()" title="Gelir Dashboard">
-        <span>📊</span> Dashboard
-      </button>
-      <button class="btn btn-secondary btn-sm" id="notifBtn"
-          onclick="openNotificationsPanel(window.sessionsData||[], window.clientsData||[], window.packagesData||[])"
-          title="Bildirimler & Hatırlatıcılar" style="position:relative;">
-        <span>🔔</span> Bildirimler
-        <span id="notifCount" style="display:none; position:absolute; top:-6px; right:-6px;
-            background:var(--danger); color:white; border-radius:50%; width:18px; height:18px;
-            font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center;
-            line-height:1;">0</span>
-      </button>
-      <button class="btn btn-secondary btn-sm" onclick="exportBackup()" title="Veri yedekle">
-        💾 Yedek Al
-      </button>
-      <label class="btn btn-secondary btn-sm" style="cursor:pointer;" title="Yedek yükle">
-        📥 Yükle
-        <input type="file" accept=".json" onchange="importBackup(this)" style="display:none;">
-      </label>
-    </div>
-  </div>
-
-  <!-- ══════════════════ STATS ══════════════════ -->
-  <div class="stats">
-    <div class="stat-card">
-      <div class="stat-top">
-        <div>
-          <div class="stat-label">Toplam Danışan</div>
-          <div class="stat-number" id="totalClients">0</div>
-        </div>
-        <div class="stat-icon sage">👥</div>
-      </div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-top">
-        <div>
-          <div class="stat-label">Toplam Seans</div>
-          <div class="stat-number" id="totalSessions">0</div>
-        </div>
-        <div class="stat-icon lavender">📊</div>
-      </div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-top">
-        <div>
-          <div class="stat-label">Bu Ay</div>
-          <div class="stat-number" id="thisMonthSessions">0</div>
-        </div>
-        <div class="stat-icon blush">📅</div>
-      </div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-top">
-        <div>
-          <div class="stat-label">Aktif Paket</div>
-          <div class="stat-number" id="activePackages">0</div>
-        </div>
-        <div class="stat-icon warm">📦</div>
+      <div class="float-notif-2">
+        📦 <strong>Paket Bitti!</strong><br>
+        <span style="color:#6b7a86;font-size:11px;">Ayşe Kaya — Yeni paket ekle</span>
       </div>
     </div>
   </div>
+</section>
 
-  <!-- ══════════════════ CLIENTS PAGE ══════════════════ -->
-  <div id="clientsPage" class="page active">
-
-    <!-- Toolbar -->
-    <div class="toolbar">
-      <div class="search-input">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="searchInput" placeholder="İsim veya telefon ara…" oninput="renderClients()">
-      </div>
-      <select class="filter-select" id="filterStatus" onchange="renderClients()">
-        <option value="all">Tüm Durumlar</option>
-        <option value="active">Aktif Paketli</option>
-        <option value="inactive">Paketi Yok</option>
-      </select>
-      <select class="filter-select" id="filterSessionType" onchange="renderClients()">
-        <option value="all">Tüm Seans Türleri</option>
-        <option value="Fizyoterapi">Fizyoterapi</option>
-        <option value="Reformer Pilates">Reformer Pilates</option>
-        <option value="Yoga">Yoga</option>
-        <option value="Mat Pilates">Mat Pilates</option>
-      </select>
-      <select class="filter-select" id="filterPayment" onchange="renderClients()">
-        <option value="all">Tüm Ödemeler</option>
-        <option value="paid">Ödemesi Tamam</option>
-        <option value="debt">Borçlu</option>
-      </select>
-      <button class="btn btn-secondary btn-sm" onclick="clearFilters()">↺ Temizle</button>
-    </div>
-
-    <!-- Header row -->
-    <div class="clients-header">
-      <h2>Danışanlar <span class="client-count-badge" id="clientCountBadge"><span id="clientCount">0</span> kişi</span></h2>
-    </div>
-
-    <div id="clientsList"></div>
-  </div>
-
-  <!-- ══════════════════ CALENDAR PAGE ══════════════════ -->
-  <div id="calendarPage" class="page">
-    <div class="calendar-container">
-      <div class="calendar-header">
-        <h2>📅 Seans Takvimi</h2>
-        <div class="calendar-nav">
-          <button onclick="previousMonth()">◀</button>
-          <h3 id="calendarMonth"></h3>
-          <button onclick="nextMonth()">▶</button>
-          <button onclick="goToToday()">Bugün</button>
-        </div>
-      </div>
-      <div class="calendar-grid" id="calendarGrid"></div>
-    </div>
-  </div>
-
-  <!-- ══════════════════ PACKAGES PAGE ══════════════════ -->
-  <div id="packagesPage" class="page">
-    <div class="clients-header" style="margin-bottom:16px;">
-      <h2>📦 Danışan Paketleri</h2>
-    </div>
-    <div id="packagesList"></div>
-  </div>
-
-  <!-- ══════════════════ PRICE LIST PAGE ══════════════════ -->
-  <div id="pricelistPage" class="page">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; flex-wrap:wrap; gap:10px;">
-      <h2>🏷️ Fiyat Listesi & Paket Şablonları</h2>
-      <button class="btn btn-primary btn-sm" onclick="openAddPriceModal()">＋ Yeni Fiyat Ekle</button>
-    </div>
-    <div id="priceListContainer"></div>
-  </div>
-
-  <!-- ══════════════════ FINANCE PAGE ══════════════════ -->
-  <div id="financePage" class="page">
-
-    <!-- KPI Kartları -->
-    <div class="finance-summary" style="margin-bottom:20px;">
-      <div class="finance-card" onclick="openMonthlyIncome()">
-        <h3>Bu Ay Gelir</h3>
-        <div class="amount" id="monthlyIncome">0 ₺</div>
-        <div style="font-size:12px; color:var(--stone); margin-top:6px;" id="monthlyChange"></div>
-      </div>
-      <div class="finance-card" onclick="openTotalIncome()">
-        <h3>Toplam Gelir</h3>
-        <div class="amount" id="totalIncome">0 ₺</div>
-        <div style="font-size:12px; color:var(--stone); margin-top:6px;" id="totalPaymentCount"></div>
-      </div>
-      <div class="finance-card" onclick="openPendingPayments()">
-        <h3>Bekleyen Ödemeler</h3>
-        <div class="amount" id="totalDebt">0 ₺</div>
-        <div style="font-size:12px; color:var(--stone); margin-top:6px;" id="debtClientCount"></div>
-      </div>
-    </div>
-
-    <!-- Mini grafik + aylık özet -->
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;" id="financeChartRow">
-      <div class="card">
-        <div class="card-header"><h2>📈 Son 6 Ay</h2></div>
-        <div class="card-body" style="padding:16px;">
-          <canvas id="financeBarChart" height="150"></canvas>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header"><h2>💳 Ödeme Yöntemleri</h2></div>
-        <div class="card-body" style="padding:16px;">
-          <canvas id="financeMethodChart" height="150"></canvas>
-        </div>
-      </div>
-    </div>
-
-    <!-- Borçlu listesi -->
-    <div class="card" style="margin-bottom:20px;" id="debtListCard">
-      <div class="card-header">
-        <h2>⚠️ Bekleyen Ödemeler</h2>
-        <button class="btn btn-success btn-sm" onclick="openNotificationsPanel(window.sessionsData||[], window.clientsData||[], window.packagesData||[])">
-          💬 Toplu Hatırlat
-        </button>
-      </div>
-      <div class="card-body" style="padding:0;" id="debtList"></div>
-    </div>
-
-    <!-- Ödeme geçmişi -->
-    <div class="card">
-      <div class="card-header">
-        <h2>💳 Tüm Ödemeler</h2>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <select id="financeFilterMethod" class="filter-select" style="min-width:120px;" onchange="renderFinance()">
-            <option value="all">Tüm Yöntemler</option>
-            <option value="Nakit">Nakit</option>
-            <option value="Kredi Kartı">Kredi Kartı</option>
-            <option value="Banka Transferi">Banka Transferi</option>
-            <option value="Dijital Cüzdan">Dijital Cüzdan</option>
-          </select>
-          <select id="financeFilterMonth" class="filter-select" style="min-width:120px;" onchange="renderFinance()">
-            <option value="all">Tüm Aylar</option>
-          </select>
-        </div>
-      </div>
-      <div class="card-body" style="padding:0;">
-        <div id="paymentHistory"></div>
-      </div>
-    </div>
-
-  </div>
-
-</div><!-- /container -->
-
-
-<!-- ══════════════════ MODALS ══════════════════ -->
-
-<!-- Add Client -->
-<div id="addClientModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3>✨ Yeni Danışan</h3>
-      <button class="close-btn" onclick="closeAddClientModal()">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label>Ad Soyad *</label>
-        <input type="text" id="clientName" placeholder="Örn: Ayşe Kaya">
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Telefon *</label>
-          <input type="tel" id="clientPhone" placeholder="5XX XXX XX XX">
-        </div>
-        <div class="form-group">
-          <label>E-posta</label>
-          <input type="email" id="clientEmail" placeholder="ornek@mail.com">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Doğum Tarihi</label>
-          <input type="date" id="clientBirthdate">
-        </div>
-        <div class="form-group">
-          <label>&nbsp;</label>
-          <div style="padding:11px 0; font-size:12px; color:var(--stone);">🎂 Doğum günü hatırlatıcısı için</div>
-        </div>
-      </div>
-      <div class="form-group">
-        <label>Şikayetler / Tanı</label>
-        <textarea id="clientComplaints" rows="2" placeholder="Bel ağrısı, diz sorunu…"></textarea>
-      </div>
-      <div class="form-group">
-        <label>Notlar</label>
-        <textarea id="clientNotes" rows="2" placeholder="Ek bilgiler…"></textarea>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeAddClientModal()">İptal</button>
-      <button class="btn btn-primary" onclick="saveClient()">💾 Kaydet</button>
-    </div>
-  </div>
+<!-- Proof bar -->
+<div class="proof-bar">
+  <div class="proof-item"><span class="proof-icon">🚀</span> <span class="proof-num">Beta</span> sürümde</div>
+  <div class="proof-item"><span class="proof-icon">👥</span> İlk kullanıcılar aramıza katılıyor</div>
+  <div class="proof-item"><span class="proof-icon">💬</span> WhatsApp otomasyonu</div>
+  <div class="proof-item"><span class="proof-icon">📄</span> Profesyonel PDF raporlar</div>
+  <div class="proof-item"><span class="proof-icon">🔒</span> Firebase güvenliği</div>
 </div>
 
-<!-- Add Session -->
-<div id="addSessionModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3>📅 Yeni Seans</h3>
-      <button class="close-btn" onclick="closeAddSessionModal()">✕</button>
+<!-- Features -->
+<section id="features">
+  <div class="section-inner">
+    <div class="reveal">
+      <span class="section-label">Özellikler</span>
+      <h2 class="section-title">İhtiyacınız olan her şey<br>tek bir yerde</h2>
+      <p class="section-sub">Kağıt not defterini bırakın. Stüdyonuzu profesyonelce yönetin.</p>
     </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label>Danışan *</label>
-        <select id="sessionClient" onchange="checkSessionConflict()">
-          <option value="">— Seçiniz —</option>
-        </select>
+    <div class="features-grid">
+      <div class="feature-card reveal">
+        <div class="feature-icon icon-sage">👥</div>
+        <div class="feature-title">Akıllı Danışan Takibi</div>
+        <div class="feature-desc">Her danışanın tüm geçmişi, şikayetleri, notları ve ödeme durumu tek ekranda. Arama ve filtreleme ile saniyeler içinde bulun.</div>
       </div>
-      <div id="sessionConflictWarn" style="display:none; padding:10px 14px;
-           background:rgba(232,196,124,.2); border-left:3px solid var(--warning);
-           border-radius:var(--r-sm); font-size:13px; color:#7a5c10; margin-bottom:12px;"></div>
-      <div id="sessionPkgWarn" style="display:none; padding:10px 14px;
-           background:rgba(109,184,157,.12); border-left:3px solid var(--success);
-           border-radius:var(--r-sm); font-size:13px; color:var(--sage-dark); margin-bottom:12px;"></div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Tarih *</label>
-          <input type="date" id="sessionDate" onchange="checkSessionConflict()">
-        </div>
-        <div class="form-group">
-          <label>Saat *</label>
-          <input type="time" id="sessionTime" value="09:00" onchange="checkSessionConflict()">
-        </div>
+      <div class="feature-card reveal" style="animation-delay:.1s">
+        <div class="feature-icon icon-blush">📅</div>
+        <div class="feature-title">Haftalık Program & Takvim</div>
+        <div class="feature-desc">Danışana haftalık program atayın, otomatik seans üretsin. Devamsızlık, telafi ve program takibi renkli takvimde.</div>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Seans Türü *</label>
-          <select id="sessionType">
-            <option>Fizyoterapi</option>
-            <option>Reformer Pilates</option>
-            <option>Yoga</option>
-            <option>Mat Pilates</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Süre (dk)</label>
-          <input type="number" id="sessionDuration" value="60" min="15" step="15">
-        </div>
+      <div class="feature-card reveal" style="animation-delay:.2s">
+        <div class="feature-icon icon-lav">💬</div>
+        <div class="feature-title">Otomatik WhatsApp Mesajları</div>
+        <div class="feature-desc">Yarınki seans hatırlatması, paket bitiyor uyarısı, ödeme gecikti, hoş geldin — 9 hazır şablon, toplu gönderim desteği.</div>
       </div>
-      <div class="form-group">
-        <label>Notlar</label>
-        <textarea id="sessionNotes" rows="2" placeholder="Seans notları…"></textarea>
+      <div class="feature-card reveal" style="animation-delay:.3s">
+        <div class="feature-icon icon-warm">📦</div>
+        <div class="feature-title">Paket & Ödeme Yönetimi</div>
+        <div class="feature-desc">Taksit planı, ödeme takibi, makbuz PDF. Paket bitince otomatik uyarı. Fiyat listesi şablonlarıyla hızlı paket oluşturma.</div>
       </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeAddSessionModal()">İptal</button>
-      <button class="btn btn-success" onclick="saveSession()">💾 Kaydet</button>
+      <div class="feature-card reveal" style="animation-delay:.4s">
+        <div class="feature-icon icon-teal">📊</div>
+        <div class="feature-title">Gelir Dashboard & Raporlar</div>
+        <div class="feature-desc">Aylık gelir grafikleri, ödeme yöntemi analizi, en aktif danışanlar. Profesyonel PDF rapor tek tıkla.</div>
+      </div>
+      <div class="feature-card reveal" style="animation-delay:.5s">
+        <div class="feature-icon icon-blue">⚙️</div>
+        <div class="feature-title">Kişisel Marka</div>
+        <div class="feature-desc">İşletme adınız, logonuz ve renk temanızla tamamen size özel. 6 renk teması. Tüm PDF'lerde markanız görünür.</div>
+      </div>
     </div>
   </div>
-</div>
+</section>
 
-<!-- Add Package -->
-<div id="addPackageModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3>📦 Yeni Paket</h3>
-      <button class="close-btn" onclick="closeAddPackageModal()">✕</button>
+<!-- How it works -->
+<section id="how" style="background:var(--warm);">
+  <div class="section-inner">
+    <div class="reveal" style="text-align:center;">
+      <span class="section-label">Nasıl Çalışır</span>
+      <h2 class="section-title">4 adımda hazır</h2>
     </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label>Danışan *</label>
-        <select id="packageClient"><option value="">— Seçiniz —</option></select>
+    <div class="how-grid">
+      <div class="how-step reveal">
+        <div class="step-num">1</div>
+        <div class="step-title">Kayıt Olun</div>
+        <div class="step-desc">E-posta ile 30 saniyede hesap açın. İşletme adınızı ve logonuzu ayarlayın.</div>
       </div>
-      <div class="form-group">
-        <label>Paket Adı *</label>
-        <input type="text" id="packageName" placeholder="Örn: 10 Seans Pilates Paketi">
+      <div class="how-step reveal" style="animation-delay:.1s">
+        <div class="step-num">2</div>
+        <div class="step-title">Danışan Ekleyin</div>
+        <div class="step-desc">Mevcut danışanlarınızı ekleyin veya Excel'den aktarın. Hoş geldin mesajı otomatik hazır.</div>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Toplam Seans *</label>
-          <input type="number" id="packageSessions" value="10" min="1">
-        </div>
-        <div class="form-group">
-          <label>Fiyat (₺) *</label>
-          <input type="number" id="packagePrice" step="0.01" placeholder="0.00">
-        </div>
+      <div class="how-step reveal" style="animation-delay:.2s">
+        <div class="step-num">3</div>
+        <div class="step-title">Programı Kurun</div>
+        <div class="step-desc">Haftalık program atayın, otomatik seans oluştursun. Paket ve ödeme takibini başlatın.</div>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Ödenen (₺)</label>
-          <input type="number" id="packagePaid" value="0" step="0.01">
-        </div>
-        <div class="form-group">
-          <label>Başlangıç Tarihi</label>
-          <input type="date" id="packageStartDate">
-        </div>
+      <div class="how-step reveal" style="animation-delay:.3s">
+        <div class="step-num">4</div>
+        <div class="step-title">Otomatik Çalışsın</div>
+        <div class="step-desc">Sabah açınca WhatsApp hatırlatmaları hazır. Paket bitince uyarı, gecikmiş ödeme bildirimi.</div>
       </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeAddPackageModal()">İptal</button>
-      <button class="btn btn-lavender" onclick="savePackage()">💾 Kaydet</button>
     </div>
   </div>
-</div>
+</section>
 
-<!-- Payment -->
-<div id="paymentModal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3>💳 Ödeme Al</h3>
-      <button class="close-btn" onclick="closePaymentModal()">✕</button>
+<!-- Pricing -->
+<section id="pricing">
+  <div class="section-inner">
+    <div class="reveal" style="text-align:center;">
+      <span class="section-label">Fiyatlar</span>
+      <h2 class="section-title">Stüdyonuzun büyüklüğüne<br>göre seçin</h2>
+      <p class="section-sub" style="margin:0 auto;">İlk 7 gün ücretsiz. Kredi kartı gerekmez.</p>
     </div>
-    <div class="modal-body">
-      <div class="payment-info-box" id="paymentPackageInfo"></div>
-      <input type="hidden" id="paymentPackage">
-      <input type="hidden" id="paymentClient">
-      <div class="form-row">
-        <div class="form-group">
-          <label>Tutar (₺) *</label>
-          <input type="number" id="paymentAmount" step="0.01" placeholder="0.00">
-        </div>
-        <div class="form-group">
-          <label>Tarih *</label>
-          <input type="date" id="paymentDate">
-        </div>
+    <div class="pricing-grid">
+
+      <!-- Basic -->
+      <div class="price-card reveal">
+        <div class="price-name">Başlangıç</div>
+        <div class="price-amount">₺490</div>
+        <div class="price-period">/ ay</div>
+        <ul class="price-features">
+          <li>50 danışana kadar</li>
+          <li>Seans & paket yönetimi</li>
+          <li>WhatsApp şablonları</li>
+          <li>Temel raporlar</li>
+          <li class="dim">Dashboard & grafikler</li>
+          <li class="dim">PDF makbuz & taksit</li>
+          <li class="dim">Çoklu kullanıcı</li>
+        </ul>
+        <a href="login.html" class="btn-price-outline">7 Gün Ücretsiz Dene</a>
       </div>
-      <div class="form-group">
-        <label>Ödeme Yöntemi</label>
-        <select id="paymentMethod">
-          <option>Nakit</option>
-          <option>Kredi Kartı</option>
-          <option>Banka Transferi</option>
-          <option>Dijital Cüzdan</option>
-        </select>
+
+      <!-- Pro -->
+      <div class="price-card featured reveal" style="animation-delay:.1s">
+        <div class="price-tag">En Popüler</div>
+        <div class="price-name">Pro</div>
+        <div class="price-amount">₺890</div>
+        <div class="price-period">/ ay</div>
+        <ul class="price-features">
+          <li>Sınırsız danışan</li>
+          <li>Tüm Başlangıç özellikleri</li>
+          <li>Dashboard & grafikler</li>
+          <li>PDF makbuz & taksit planı</li>
+          <li>Fiyat listesi şablonları</li>
+          <li>Veri yedekleme & aktarma</li>
+          <li class="dim">Çoklu kullanıcı / eğitmen</li>
+        </ul>
+        <a href="login.html" class="btn-price-primary">7 Gün Ücretsiz Dene</a>
+      </div>
+
+      <!-- Kurumsal -->
+      <div class="price-card reveal" style="animation-delay:.2s">
+        <div class="price-name">Kurumsal</div>
+        <div class="price-amount">₺1.490</div>
+        <div class="price-period">/ ay</div>
+        <ul class="price-features">
+          <li>Tüm Pro özellikleri</li>
+          <li>Çoklu eğitmen paneli</li>
+          <li>Online randevu sayfası</li>
+          <li>Özel domain desteği</li>
+          <li>Öncelikli destek</li>
+          <li>Özel entegrasyonlar</li>
+          <li>Fatura entegrasyonu</li>
+        </ul>
+        <a href="#contact" class="btn-price-outline">Bizimle İletişime Geçin</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Early Access -->
+<section>
+  <div class="section-inner">
+    <div class="reveal" style="text-align:center;">
+      <span class="section-label">Erken Erişim</span>
+      <h2 class="section-title">İlk kullananlar arasına katıl</h2>
+      <p class="section-sub" style="max-width:560px;margin:0 auto 40px;">Studio Pro şu an beta aşamasında. Erken kullanıcılara <strong>ilk 1 ay tamamen ücretsiz</strong>, doğrudan geliştirici desteği ve özellik isteklerini öncelikli değerlendirme hakkı sunuyoruz.</p>
+    </div>
+    <div class="testimonials-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));max-width:900px;margin:0 auto;">
+      <div class="testimonial-card reveal" style="text-align:center;padding:36px 28px;">
+        <div style="font-size:2.5rem;margin-bottom:16px;">🎁</div>
+        <div style="font-weight:700;font-size:1.1rem;color:var(--ink);margin-bottom:8px;">İlk 3 Ay Ücretsiz</div>
+        <p style="color:var(--stone);font-size:14px;">Kredi kartı gerekmez. İstediğin zaman iptal et. Hiçbir risk yok.</p>
+      </div>
+      <div class="testimonial-card reveal" style="text-align:center;padding:36px 28px;animation-delay:.1s">
+        <div style="font-size:2.5rem;margin-bottom:16px;">💬</div>
+        <div style="font-weight:700;font-size:1.1rem;color:var(--ink);margin-bottom:8px;">Doğrudan Geliştirici Desteği</div>
+        <p style="color:var(--stone);font-size:14px;">Sorun mu çıktı? İstediğin özellik mi var? Geliştirici ile birebir konuş.</p>
+      </div>
+      <div class="testimonial-card reveal" style="text-align:center;padding:36px 28px;animation-delay:.2s">
+        <div style="font-size:2.5rem;margin-bottom:16px;">⭐</div>
+        <div style="font-weight:700;font-size:1.1rem;color:var(--ink);margin-bottom:8px;">Şekillendirme Hakkı</div>
+        <p style="color:var(--stone);font-size:14px;">Erken kullanıcıların önerileri ürünün yol haritasını doğrudan etkiliyor.</p>
       </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closePaymentModal()">İptal</button>
-      <button class="btn btn-success" onclick="savePayment()">✓ Ödemeyi Kaydet</button>
-    </div>
   </div>
-</div>
+</section>
 
-<!-- Finance Detail Modal -->
-<div id="financeModal" class="modal">
-  <div class="modal-content large">
-    <div class="modal-header">
-      <h3 id="financeModalTitle"></h3>
-      <button class="close-btn" onclick="closeFinanceModal()">✕</button>
-    </div>
-    <div class="modal-body" id="financeModalBody"></div>
+<!-- CTA -->
+<section class="cta-section" id="contact">
+  <h2 class="cta-title reveal">Stüdyonuzu<br><em>bugün dijitalleştirin.</em></h2>
+  <p class="cta-sub reveal">7 gün ücretsiz. Kredi kartı gerekmez. İstediğiniz zaman iptal.</p>
+  <div class="cta-actions reveal">
+    <a href="login.html" class="btn-cta-white">🌿 Ücretsiz Başla</a>
+    <a href="mailto:info@studiopro.app" class="btn-cta-outline">Sorunuz mu var? Yazın</a>
   </div>
-</div>
+</section>
 
-<!-- Client Detail Modal -->
-<div id="clientDetailModal" class="modal">
-  <div class="modal-content large">
-    <div class="modal-header">
-      <h3 id="clientDetailTitle"></h3>
-      <button class="close-btn" onclick="closeClientDetailModal()">✕</button>
+<!-- Footer -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">🌿 Studio Pro</div>
+    <div class="footer-links">
+      <a href="#">Gizlilik</a>
+      <a href="#">Kullanım Koşulları</a>
+      <a href="mailto:info@studiopro.app">İletişim</a>
     </div>
-    <div class="modal-body" id="clientDetailBody"></div>
+    <div class="footer-copy">© 2026 Studio Pro. Tüm hakları saklıdır.</div>
   </div>
-</div>
+</footer>
 
+<script>
+// Nav scroll effect
+window.addEventListener('scroll', () => {
+  document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 40);
+});
 
-<script type="module">
-  import './firebase-config.js';
-  import './notifications.js';
-  import './export.js';
-  import './payments.js';
-  import './settings.js';
-  import './dashboard.js';
-  import './app.js';
+// Reveal on scroll
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach((e, i) => {
+    if (e.isIntersecting) {
+      setTimeout(() => e.target.classList.add('visible'), i * 60);
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.12 });
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 </script>
 </body>
 </html>

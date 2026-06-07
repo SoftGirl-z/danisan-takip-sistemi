@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Danışan Takip — Studio</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+
+  <!-- ══════════════════ HEADER ══════════════════ -->
+  <div class="header">
+    <div class="header-inner">
+      <div class="header-top">
+        <div class="header-brand">
+          <div class="brand-icon" id="brandIcon">🌿</div>
+          <div class="brand-text">
+            <h1 id="brandName">Danışan Takip</h1>
+            <p id="brandTagline">Fizyoterapi · Pilates · Yoga</p>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <!-- Settings button (always visible) -->
+          <button class="btn btn-ghost btn-sm" onclick="openSettings()" title="İşletme Ayarları" style="padding:8px 10px;">
+            ⚙️
+          </button>
+
+          <!-- Logged in user -->
+          <div id="userDisplay" style="display:none; align-items:center; gap:10px;">
+            <div class="user-pill">
+              <div class="avatar">👤</div>
+              <span id="currentUserName">Kullanıcı</span>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="logoutUser()">Çıkış</button>
+          </div>
+          <!-- Guest -->
+          <div id="guestDisplay">
+            <button class="btn btn-primary btn-sm" onclick="window.location.href='login.html'">🔐 Giriş Yap</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('clients')">👥 Danışanlar</button>
+        <button class="tab" onclick="switchTab('calendar')">📅 Takvim</button>
+        <button class="tab" onclick="switchTab('packages')">📦 Paketler</button>
+        <button class="tab" onclick="switchTab('finance')">💰 Finans</button>
+        <button class="tab" onclick="switchTab('pricelist')">🏷️ Fiyat Listesi</button>
+      </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="quick-actions">
+      <button class="btn btn-primary btn-sm" onclick="openAddClientModal()">
+        <span>＋</span> Danışan Ekle
+      </button>
+      <button class="btn btn-success btn-sm" onclick="openAddSessionModal()">
+        <span>＋</span> Seans Ekle
+      </button>
+      <button class="btn btn-lavender btn-sm" onclick="openAddPackageModal()">
+        <span>📦</span> Paket Ekle
+      </button>
+      <button class="btn btn-secondary btn-sm" onclick="openDashboard()" title="Gelir Dashboard">
+        <span>📊</span> Dashboard
+      </button>
+      <button class="btn btn-secondary btn-sm" id="notifBtn"
+          onclick="openNotificationsPanel(window.sessionsData||[], window.clientsData||[], window.packagesData||[])"
+          title="Bildirimler & Hatırlatıcılar" style="position:relative;">
+        <span>🔔</span> Bildirimler
+        <span id="notifCount" style="display:none; position:absolute; top:-6px; right:-6px;
+            background:var(--danger); color:white; border-radius:50%; width:18px; height:18px;
+            font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center;
+            line-height:1;">0</span>
+      </button>
+      <button class="btn btn-secondary btn-sm" onclick="exportBackup()" title="Veri yedekle">
+        💾 Yedek Al
+      </button>
+      <label class="btn btn-secondary btn-sm" style="cursor:pointer;" title="Yedek yükle">
+        📥 Yükle
+        <input type="file" accept=".json" onchange="importBackup(this)" style="display:none;">
+      </label>
+    </div>
+  </div>
+
+  <!-- ══════════════════ STATS ══════════════════ -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-top">
+        <div>
+          <div class="stat-label">Toplam Danışan</div>
+          <div class="stat-number" id="totalClients">0</div>
+        </div>
+        <div class="stat-icon sage">👥</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-top">
+        <div>
+          <div class="stat-label">Toplam Seans</div>
+          <div class="stat-number" id="totalSessions">0</div>
+        </div>
+        <div class="stat-icon lavender">📊</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-top">
+        <div>
+          <div class="stat-label">Bu Ay</div>
+          <div class="stat-number" id="thisMonthSessions">0</div>
+        </div>
+        <div class="stat-icon blush">📅</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-top">
+        <div>
+          <div class="stat-label">Aktif Paket</div>
+          <div class="stat-number" id="activePackages">0</div>
+        </div>
+        <div class="stat-icon warm">📦</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════ CLIENTS PAGE ══════════════════ -->
+  <div id="clientsPage" class="page active">
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search-input">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="İsim veya telefon ara…" oninput="renderClients()">
+      </div>
+      <select class="filter-select" id="filterStatus" onchange="renderClients()">
+        <option value="all">Tüm Durumlar</option>
+        <option value="active">Aktif Paketli</option>
+        <option value="inactive">Paketi Yok</option>
+      </select>
+      <select class="filter-select" id="filterSessionType" onchange="renderClients()">
+        <option value="all">Tüm Seans Türleri</option>
+        <option value="Fizyoterapi">Fizyoterapi</option>
+        <option value="Reformer Pilates">Reformer Pilates</option>
+        <option value="Yoga">Yoga</option>
+        <option value="Mat Pilates">Mat Pilates</option>
+      </select>
+      <select class="filter-select" id="filterPayment" onchange="renderClients()">
+        <option value="all">Tüm Ödemeler</option>
+        <option value="paid">Ödemesi Tamam</option>
+        <option value="debt">Borçlu</option>
+      </select>
+      <button class="btn btn-secondary btn-sm" onclick="clearFilters()">↺ Temizle</button>
+    </div>
+
+    <!-- Header row -->
+    <div class="clients-header">
+      <h2>Danışanlar <span class="client-count-badge" id="clientCountBadge"><span id="clientCount">0</span> kişi</span></h2>
+    </div>
+
+    <div id="clientsList"></div>
+  </div>
+
+  <!-- ══════════════════ CALENDAR PAGE ══════════════════ -->
+  <div id="calendarPage" class="page">
+    <div class="calendar-container">
+      <div class="calendar-header">
+        <h2>📅 Seans Takvimi</h2>
+        <div class="calendar-nav">
+          <button onclick="previousMonth()">◀</button>
+          <h3 id="calendarMonth"></h3>
+          <button onclick="nextMonth()">▶</button>
+          <button onclick="goToToday()">Bugün</button>
+        </div>
+      </div>
+      <div class="calendar-grid" id="calendarGrid"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════ PACKAGES PAGE ══════════════════ -->
+  <div id="packagesPage" class="page">
+    <div class="clients-header" style="margin-bottom:16px;">
+      <h2>📦 Danışan Paketleri</h2>
+    </div>
+    <div id="packagesList"></div>
+  </div>
+
+  <!-- ══════════════════ PRICE LIST PAGE ══════════════════ -->
+  <div id="pricelistPage" class="page">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; flex-wrap:wrap; gap:10px;">
+      <h2>🏷️ Fiyat Listesi & Paket Şablonları</h2>
+      <button class="btn btn-primary btn-sm" onclick="openAddPriceModal()">＋ Yeni Fiyat Ekle</button>
+    </div>
+    <div id="priceListContainer"></div>
+  </div>
+
+  <!-- ══════════════════ FINANCE PAGE ══════════════════ -->
+  <div id="financePage" class="page">
+
+    <!-- KPI Kartları -->
+    <div class="finance-summary" style="margin-bottom:20px;">
+      <div class="finance-card" onclick="openMonthlyIncome()">
+        <h3>Bu Ay Gelir</h3>
+        <div class="amount" id="monthlyIncome">0 ₺</div>
+        <div style="font-size:12px; color:var(--stone); margin-top:6px;" id="monthlyChange"></div>
+      </div>
+      <div class="finance-card" onclick="openTotalIncome()">
+        <h3>Toplam Gelir</h3>
+        <div class="amount" id="totalIncome">0 ₺</div>
+        <div style="font-size:12px; color:var(--stone); margin-top:6px;" id="totalPaymentCount"></div>
+      </div>
+      <div class="finance-card" onclick="openPendingPayments()">
+        <h3>Bekleyen Ödemeler</h3>
+        <div class="amount" id="totalDebt">0 ₺</div>
+        <div style="font-size:12px; color:var(--stone); margin-top:6px;" id="debtClientCount"></div>
+      </div>
+    </div>
+
+    <!-- Mini grafik + aylık özet -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;" id="financeChartRow">
+      <div class="card">
+        <div class="card-header"><h2>📈 Son 6 Ay</h2></div>
+        <div class="card-body" style="padding:16px;">
+          <canvas id="financeBarChart" height="150"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h2>💳 Ödeme Yöntemleri</h2></div>
+        <div class="card-body" style="padding:16px;">
+          <canvas id="financeMethodChart" height="150"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Borçlu listesi -->
+    <div class="card" style="margin-bottom:20px;" id="debtListCard">
+      <div class="card-header">
+        <h2>⚠️ Bekleyen Ödemeler</h2>
+        <button class="btn btn-success btn-sm" onclick="openNotificationsPanel(window.sessionsData||[], window.clientsData||[], window.packagesData||[])">
+          💬 Toplu Hatırlat
+        </button>
+      </div>
+      <div class="card-body" style="padding:0;" id="debtList"></div>
+    </div>
+
+    <!-- Ödeme geçmişi -->
+    <div class="card">
+      <div class="card-header">
+        <h2>💳 Tüm Ödemeler</h2>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <select id="financeFilterMethod" class="filter-select" style="min-width:120px;" onchange="renderFinance()">
+            <option value="all">Tüm Yöntemler</option>
+            <option value="Nakit">Nakit</option>
+            <option value="Kredi Kartı">Kredi Kartı</option>
+            <option value="Banka Transferi">Banka Transferi</option>
+            <option value="Dijital Cüzdan">Dijital Cüzdan</option>
+          </select>
+          <select id="financeFilterMonth" class="filter-select" style="min-width:120px;" onchange="renderFinance()">
+            <option value="all">Tüm Aylar</option>
+          </select>
+        </div>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <div id="paymentHistory"></div>
+      </div>
+    </div>
+
+  </div>
+
+</div><!-- /container -->
+
+
+<!-- ══════════════════ MODALS ══════════════════ -->
+
+<!-- Add Client -->
+<div id="addClientModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>✨ Yeni Danışan</h3>
+      <button class="close-btn" onclick="closeAddClientModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Ad Soyad *</label>
+        <input type="text" id="clientName" placeholder="Örn: Ayşe Kaya">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Telefon *</label>
+          <input type="tel" id="clientPhone" placeholder="5XX XXX XX XX">
+        </div>
+        <div class="form-group">
+          <label>E-posta</label>
+          <input type="email" id="clientEmail" placeholder="ornek@mail.com">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Doğum Tarihi</label>
+          <input type="date" id="clientBirthdate">
+        </div>
+        <div class="form-group">
+          <label>&nbsp;</label>
+          <div style="padding:11px 0; font-size:12px; color:var(--stone);">🎂 Doğum günü hatırlatıcısı için</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Şikayetler / Tanı</label>
+        <textarea id="clientComplaints" rows="2" placeholder="Bel ağrısı, diz sorunu…"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Notlar</label>
+        <textarea id="clientNotes" rows="2" placeholder="Ek bilgiler…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAddClientModal()">İptal</button>
+      <button class="btn btn-primary" onclick="saveClient()">💾 Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Session -->
+<div id="addSessionModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>📅 Yeni Seans</h3>
+      <button class="close-btn" onclick="closeAddSessionModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Danışan *</label>
+        <select id="sessionClient" onchange="checkSessionConflict()">
+          <option value="">— Seçiniz —</option>
+        </select>
+      </div>
+      <div id="sessionConflictWarn" style="display:none; padding:10px 14px;
+           background:rgba(232,196,124,.2); border-left:3px solid var(--warning);
+           border-radius:var(--r-sm); font-size:13px; color:#7a5c10; margin-bottom:12px;"></div>
+      <div id="sessionPkgWarn" style="display:none; padding:10px 14px;
+           background:rgba(109,184,157,.12); border-left:3px solid var(--success);
+           border-radius:var(--r-sm); font-size:13px; color:var(--sage-dark); margin-bottom:12px;"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tarih *</label>
+          <input type="date" id="sessionDate" onchange="checkSessionConflict()">
+        </div>
+        <div class="form-group">
+          <label>Saat *</label>
+          <input type="time" id="sessionTime" value="09:00" onchange="checkSessionConflict()">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Seans Türü *</label>
+          <select id="sessionType">
+            <option>Fizyoterapi</option>
+            <option>Reformer Pilates</option>
+            <option>Yoga</option>
+            <option>Mat Pilates</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Süre (dk)</label>
+          <input type="number" id="sessionDuration" value="60" min="15" step="15">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Notlar</label>
+        <textarea id="sessionNotes" rows="2" placeholder="Seans notları…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAddSessionModal()">İptal</button>
+      <button class="btn btn-success" onclick="saveSession()">💾 Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Package -->
+<div id="addPackageModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>📦 Yeni Paket</h3>
+      <button class="close-btn" onclick="closeAddPackageModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Danışan *</label>
+        <select id="packageClient"><option value="">— Seçiniz —</option></select>
+      </div>
+      <div class="form-group">
+        <label>Paket Adı *</label>
+        <input type="text" id="packageName" placeholder="Örn: 10 Seans Pilates Paketi">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Toplam Seans *</label>
+          <input type="number" id="packageSessions" value="10" min="1">
+        </div>
+        <div class="form-group">
+          <label>Fiyat (₺) *</label>
+          <input type="number" id="packagePrice" step="0.01" placeholder="0.00">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Ödenen (₺)</label>
+          <input type="number" id="packagePaid" value="0" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>Başlangıç Tarihi</label>
+          <input type="date" id="packageStartDate">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAddPackageModal()">İptal</button>
+      <button class="btn btn-lavender" onclick="savePackage()">💾 Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- Payment -->
+<div id="paymentModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>💳 Ödeme Al</h3>
+      <button class="close-btn" onclick="closePaymentModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="payment-info-box" id="paymentPackageInfo"></div>
+      <input type="hidden" id="paymentPackage">
+      <input type="hidden" id="paymentClient">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tutar (₺) *</label>
+          <input type="number" id="paymentAmount" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label>Tarih *</label>
+          <input type="date" id="paymentDate">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Ödeme Yöntemi</label>
+        <select id="paymentMethod">
+          <option>Nakit</option>
+          <option>Kredi Kartı</option>
+          <option>Banka Transferi</option>
+          <option>Dijital Cüzdan</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closePaymentModal()">İptal</button>
+      <button class="btn btn-success" onclick="savePayment()">✓ Ödemeyi Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- Finance Detail Modal -->
+<div id="financeModal" class="modal">
+  <div class="modal-content large">
+    <div class="modal-header">
+      <h3 id="financeModalTitle"></h3>
+      <button class="close-btn" onclick="closeFinanceModal()">✕</button>
+    </div>
+    <div class="modal-body" id="financeModalBody"></div>
+  </div>
+</div>
+
+<!-- Client Detail Modal -->
+<div id="clientDetailModal" class="modal">
+  <div class="modal-content large">
+    <div class="modal-header">
+      <h3 id="clientDetailTitle"></h3>
+      <button class="close-btn" onclick="closeClientDetailModal()">✕</button>
+    </div>
+    <div class="modal-body" id="clientDetailBody"></div>
+  </div>
+</div>
+
+
+<script type="module">
+  import './firebase-config.js';
+  import './notifications.js';
+  import './export.js';
+  import './payments.js';
+  import './settings.js';
+  import './dashboard.js';
+  import './app.js';
+</script>
+</body>
+</html>
