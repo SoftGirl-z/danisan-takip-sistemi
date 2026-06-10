@@ -94,6 +94,16 @@ window.addEventListener('load', async function() {
         updateNotifBadge();
         renderCalendar();
 
+        // Arama ve filtre event listener
+        const si = document.getElementById('searchInput');
+        const fs = document.getElementById('filterStatus');
+        const ft = document.getElementById('filterSessionType');
+        const fp = document.getElementById('filterPayment');
+        if (si) si.addEventListener('input', () => renderClients());
+        if (fs) fs.addEventListener('change', () => renderClients());
+        if (ft) ft.addEventListener('change', () => renderClients());
+        if (fp) fp.addEventListener('change', () => renderClients());
+
         // Profil yükle
         if (typeof loadAndApplyProfile === 'function') {
             await loadAndApplyProfile(user.uid);
@@ -1217,9 +1227,65 @@ function renderCalendar() {
             }
         });
 
+        // Güne tıklayınca detay modal aç
+        dayDiv.style.cursor = 'pointer';
+        dayDiv.addEventListener('click', () => openDayModal(dateStr));
+
         grid.appendChild(dayDiv);
         currentDate.setDate(currentDate.getDate() + 1);
     }
+}
+
+function openDayModal(dateStr) {
+    const daySessions = sessions.filter(s => s.date === dateStr);
+    const [y, m, d] = dateStr.split('-');
+    const months = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+    const title = `${parseInt(d)} ${months[parseInt(m)-1]} ${y}`;
+
+    let existing = document.getElementById('dayDetailModal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'dayDetailModal';
+    modal.style.cssText = `
+        position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:9999;
+        display:flex; align-items:center; justify-content:center; padding:20px;
+    `;
+
+    const rows = daySessions.length === 0
+        ? '<p style="color:#888;text-align:center;padding:20px;">Bu günde seans yok.</p>'
+        : daySessions.sort((a,b) => (a.time||'').localeCompare(b.time||'')).map(s => {
+            const client = clients.find(c => c.id === s.clientId);
+            const status = s.status || 'normal';
+            const statusLabel = {normal:'✅ Normal', absent:'🚫 Gelmedi', telafi:'🔄 Telafi', scheduled:'📅 Planlandı'}[status] || status;
+            return `
+                <div style="padding:12px 0; border-bottom:1px solid #f0f0f0;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <strong style="font-size:15px;">${client ? client.name : 'Bilinmiyor'}</strong>
+                        <span style="font-size:13px;color:#888;">${s.time || ''}</span>
+                    </div>
+                    <div style="font-size:13px;color:#666;margin-top:4px;">
+                        ${s.type || ''} · ${s.duration || 0} dk · ${statusLabel}
+                    </div>
+                </div>`;
+        }).join('');
+
+    modal.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:28px;max-width:460px;width:100%;max-height:80vh;overflow-y:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h3 style="font-size:1.1rem;font-weight:700;color:#1e2730;">📅 ${title}</h3>
+                <span style="font-size:12px;color:#888;">${daySessions.length} seans</span>
+            </div>
+            ${rows}
+            <button onclick="document.getElementById('dayDetailModal').remove()" style="
+                margin-top:16px; width:100%; padding:12px; border:none;
+                background:#f5f5f5; border-radius:10px; cursor:pointer;
+                font-size:14px; font-weight:600; color:#444;
+            ">Kapat</button>
+        </div>`;
+
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
 }
 
 function previousMonth() { currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1); renderCalendar(); }
@@ -2531,6 +2597,101 @@ async function importBackup(input) {
 window.exportBackup = exportBackup;
 window.importBackup = importBackup;
 
+// ========================================
+// EXCEL / CSV DANIŞAN İMPORTU
+// ========================================
+
+async function importClientsFromExcel(input) {
+    const file = input.files?.[0];
+    if (!file) return;
+    if (!currentUser) { showNotification('Giriş yapmanız gerekiyor', 'error'); return; }
+
+    const isCSV = file.name.endsWith('.csv');
+
+    if (isCSV) {
+        const text = await file.text();
+        const lines = text.split('\n').filter(l => l.trim());
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/['"]/g,''));
+        const nameIdx = headers.findIndex(h => h.includes('ad') || h.includes('isim') || h.includes('name'));
+        const phoneIdx = headers.findIndex(h => h.includes('tel') || h.includes('phone') || h.includes('gsm'));
+        const noteIdx = headers.findIndex(h => h.includes('not') || h.includes('note'));
+
+        if (nameIdx === -1) { showNotification('CSV dosyasında "ad" sütunu bulunamadı', 'error'); return; }
+
+        const newClients = [];
+        for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(',').map(c => c.trim().replace(/['"]/g,''));
+            if (!cols[nameIdx]) continue;
+            newClients.push({
+                id: 'c_' + Date.now() + '_' + i,
+                name: cols[nameIdx],
+                phone: phoneIdx >= 0 ? cols[phoneIdx] : '',
+                notes: noteIdx >= 0 ? cols[noteIdx] : '',
+                createdAt: new Date().toISOString()
+            });
+        }
+
+        if (!newClients.length) { showNotification('İçe aktarılacak danışan bulunamadı', 'error'); return; }
+        const ok = confirm(`${newClients.length} danışan içe aktarılacak. Devam edilsin mi?`);
+        if (!ok) return;
+
+        showNotification('Yükleniyor...', 'success');
+        for (const c of newClients) await upsertClient(currentUser.uid, c.id, c);
+        await loadDataFromFirestore(currentUser.uid);
+        syncGlobalDataRefs();
+        renderClients();
+        updateStats();
+        showNotification(`✓ ${newClients.length} danışan eklendi`, 'success');
+
+    } else {
+        // Excel - SheetJS kullan
+        if (!window.XLSX) {
+            showNotification('Excel desteği yükleniyor, tekrar deneyin', 'error');
+            const s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+            document.head.appendChild(s);
+            return;
+        }
+
+        const buffer = await file.arrayBuffer();
+        const wb = window.XLSX.read(buffer, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = window.XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+        if (!rows.length) { showNotification('Excel dosyası boş', 'error'); return; }
+
+        const firstRow = Object.keys(rows[0]).map(k => k.toLowerCase());
+        const nameKey = Object.keys(rows[0]).find(k => k.toLowerCase().includes('ad') || k.toLowerCase().includes('isim') || k.toLowerCase().includes('name'));
+        const phoneKey = Object.keys(rows[0]).find(k => k.toLowerCase().includes('tel') || k.toLowerCase().includes('phone') || k.toLowerCase().includes('gsm'));
+        const noteKey = Object.keys(rows[0]).find(k => k.toLowerCase().includes('not') || k.toLowerCase().includes('note'));
+
+        if (!nameKey) { showNotification('Excel dosyasında "Ad" sütunu bulunamadı', 'error'); return; }
+
+        const newClients = rows.filter(r => r[nameKey]).map((r, i) => ({
+            id: 'c_' + Date.now() + '_' + i,
+            name: String(r[nameKey]),
+            phone: phoneKey ? String(r[phoneKey]) : '',
+            notes: noteKey ? String(r[noteKey]) : '',
+            createdAt: new Date().toISOString()
+        }));
+
+        if (!newClients.length) { showNotification('İçe aktarılacak danışan bulunamadı', 'error'); return; }
+        const ok = confirm(`${newClients.length} danışan içe aktarılacak. Devam edilsin mi?`);
+        if (!ok) return;
+
+        showNotification('Yükleniyor...', 'success');
+        for (const c of newClients) await upsertClient(currentUser.uid, c.id, c);
+        await loadDataFromFirestore(currentUser.uid);
+        syncGlobalDataRefs();
+        renderClients();
+        updateStats();
+        showNotification(`✓ ${newClients.length} danışan eklendi`, 'success');
+    }
+    input.value = '';
+}
+
+window.importClientsFromExcel = importClientsFromExcel;
+
 // Uygulama başlarken fiyat şablonlarını yükle
 (async () => { await loadPriceTemplates(); })();
 
@@ -2553,7 +2714,7 @@ function showPaywall() {
                     Deneme süreniz doldu
                 </h2>
                 <p style="color:#6b7a86;margin-bottom:32px;line-height:1.6;">
-                    1 aylık ücretsiz denemeniz tamamlandı.<br>
+                    7 günlük ücretsiz denemeniz tamamlandı.<br>
                     Tüm verileriniz güvende, devam etmek için bir paket seçin.
                 </p>
                 <a href="/index.html#pricing" style="
