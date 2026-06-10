@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Danışan Takip — Studio</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -82,6 +83,10 @@
       <label class="btn btn-secondary btn-sm" style="cursor:pointer;" title="Yedek yükle">
         📥 Yükle
         <input type="file" accept=".json" onchange="importBackup(this)" style="display:none;">
+      </label>
+      <label class="btn btn-secondary btn-sm" style="cursor:pointer;" title="Excel/CSV'den danışan aktar">
+        📊 Excel Aktar
+        <input type="file" accept=".xlsx,.xls,.csv" onchange="importClientsFromExcel(this)" style="display:none;">
       </label>
     </div>
   </div>
