@@ -1,0 +1,39 @@
+{
+  "name": "Stulio — Stüdyo Yönetim Sistemi",
+  "short_name": "Stulio",
+  "description": "Fizyoterapi, pilates, yoga, güzellik merkezi için danışan yönetim sistemi",
+  "start_url": "./landing.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#faf7f2",
+  "theme_color": "#5f8076",
+  "lang": "tr",
+  "categories": ["business", "productivity", "health"],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Danışanlar",
+      "url": "./index.html",
+      "description": "Danışan listesini aç"
+    },
+    {
+      "name": "Seans Ekle",
+      "url": "./index.html#session",
+      "description": "Yeni seans ekle"
+    }
+  ]
+}

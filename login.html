@@ -3,7 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Giriş — Danışan Takip</title>
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#5f8076">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Stulio">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <title>Giriş — Stulio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
   <style>
@@ -233,11 +241,19 @@
 <body>
   <div class="login-wrap">
 
+    <!-- Back to landing -->
+    <div style="text-align:center; margin-bottom:16px;">
+        <a href="landing.html" style="font-size:13px; color:var(--stone); text-decoration:none;
+            display:inline-flex; align-items:center; gap:6px;">
+            &#8592; Ana Sayfaya Don
+        </a>
+    </div>
+
     <!-- Brand -->
     <div class="login-brand">
       <div class="login-brand-icon">🌿</div>
-      <h1>Danışan Takip Sistemi</h1>
-      
+      <h1>Stulio</h1>
+      <p>Fizyoterapi · Pilates · Yoga</p>
     </div>
 
     <!-- Card -->
@@ -322,7 +338,7 @@
       if (!email || !password) { alert('Lütfen e-posta ve şifre girin!'); return; }
       try {
         await fb.loginUser(email, password);
-        window.location.href = "app.html";;
+        window.location.href = 'index.html';
       } catch (err) { alert('❌ ' + err.message); }
     };
 
@@ -345,11 +361,11 @@
           createdAt:    new Date().toISOString(),
         };
         try { localStorage.setItem('studioProfile', JSON.stringify(profile)); } catch(e) {}
-        window.location.href = "app.html";;
+        window.location.href = 'index.html';
       } catch (err) { alert('❌ ' + err.message); }
     };
 
-    window.guestLogin = function () { window.location.href = "app.html";; };
+    window.guestLogin = function () { window.location.href = 'index.html'; };
 
     window.showTab = function (tab, btn) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -357,6 +373,15 @@
       btn.classList.add('active');
       document.getElementById(tab + 'Tab').classList.add('active');
     };
+  </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('./service-worker.js')
+          .then(function(reg) { console.log('SW kayıtlı:', reg.scope); })
+          .catch(function(err) { console.warn('SW hatası:', err); });
+      });
+    }
   </script>
 </body>
 </html>
