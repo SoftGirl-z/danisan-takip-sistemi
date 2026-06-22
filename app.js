@@ -22,7 +22,6 @@ import {
     saveProfile,
     getProfile
 } from './firebase-config.js';
-import { checkTrial, markTrialStart } from './trial.js';
 
 // ========================================
 // GLOBAL VARIABLES
@@ -74,17 +73,6 @@ window.addEventListener('load', async function() {
         if (guestDisplayEl) guestDisplayEl.style.display = 'none';
         if (userNameEl)     userNameEl.textContent        = user.email || 'Kullanıcı';
 
-        // Trial kontrolü
-        await markTrialStart(user.uid);
-        const trial = await checkTrial(user.uid);
-        if (trial.expired) {
-            showPaywall();
-            return;
-        }
-        if (!trial.isPaid && trial.daysLeft <= 3) {
-            showTrialBanner(trial.daysLeft);
-        }
-
         // Veri yükle
         await loadDataFromFirestore(user.uid);
         syncGlobalDataRefs();
@@ -94,20 +82,13 @@ window.addEventListener('load', async function() {
         updateNotifBadge();
         renderCalendar();
 
-        // Arama ve filtre event listener
-        const si = document.getElementById('searchInput');
-        const fs = document.getElementById('filterStatus');
-        const ft = document.getElementById('filterSessionType');
-        const fp = document.getElementById('filterPayment');
-        if (si) si.addEventListener('input', () => renderClients());
-        if (fs) fs.addEventListener('change', () => renderClients());
-        if (ft) ft.addEventListener('change', () => renderClients());
-        if (fp) fp.addEventListener('change', () => renderClients());
-
         // Profil yükle
         if (typeof loadAndApplyProfile === 'function') {
             await loadAndApplyProfile(user.uid);
         }
+
+        // Seans türlerini yükle
+        await loadSessionTypes();
 
         // Doğum günü kontrolü
         if (typeof showBirthdayAlert === 'function') {
@@ -136,7 +117,7 @@ async function logout() {
     if (!confirm('Çıkış yapmak istediğinizden emin misiniz?')) return;
     try {
         await fbLogout();
-        window.location.href = 'login.html';
+        window.location.href = 'landing.html';
     } catch (error) {
         alert('Çıkış hatası: ' + error.message);
     }
@@ -1227,65 +1208,9 @@ function renderCalendar() {
             }
         });
 
-        // Güne tıklayınca detay modal aç
-        dayDiv.style.cursor = 'pointer';
-        dayDiv.addEventListener('click', () => openDayModal(dateStr));
-
         grid.appendChild(dayDiv);
         currentDate.setDate(currentDate.getDate() + 1);
     }
-}
-
-function openDayModal(dateStr) {
-    const daySessions = sessions.filter(s => s.date === dateStr);
-    const [y, m, d] = dateStr.split('-');
-    const months = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
-    const title = `${parseInt(d)} ${months[parseInt(m)-1]} ${y}`;
-
-    let existing = document.getElementById('dayDetailModal');
-    if (existing) existing.remove();
-
-    const modal = document.createElement('div');
-    modal.id = 'dayDetailModal';
-    modal.style.cssText = `
-        position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:9999;
-        display:flex; align-items:center; justify-content:center; padding:20px;
-    `;
-
-    const rows = daySessions.length === 0
-        ? '<p style="color:#888;text-align:center;padding:20px;">Bu günde seans yok.</p>'
-        : daySessions.sort((a,b) => (a.time||'').localeCompare(b.time||'')).map(s => {
-            const client = clients.find(c => c.id === s.clientId);
-            const status = s.status || 'normal';
-            const statusLabel = {normal:'✅ Normal', absent:'🚫 Gelmedi', telafi:'🔄 Telafi', scheduled:'📅 Planlandı'}[status] || status;
-            return `
-                <div style="padding:12px 0; border-bottom:1px solid #f0f0f0;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <strong style="font-size:15px;">${client ? client.name : 'Bilinmiyor'}</strong>
-                        <span style="font-size:13px;color:#888;">${s.time || ''}</span>
-                    </div>
-                    <div style="font-size:13px;color:#666;margin-top:4px;">
-                        ${s.type || ''} · ${s.duration || 0} dk · ${statusLabel}
-                    </div>
-                </div>`;
-        }).join('');
-
-    modal.innerHTML = `
-        <div style="background:white;border-radius:16px;padding:28px;max-width:460px;width:100%;max-height:80vh;overflow-y:auto;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <h3 style="font-size:1.1rem;font-weight:700;color:#1e2730;">📅 ${title}</h3>
-                <span style="font-size:12px;color:#888;">${daySessions.length} seans</span>
-            </div>
-            ${rows}
-            <button onclick="document.getElementById('dayDetailModal').remove()" style="
-                margin-top:16px; width:100%; padding:12px; border:none;
-                background:#f5f5f5; border-radius:10px; cursor:pointer;
-                font-size:14px; font-weight:600; color:#444;
-            ">Kapat</button>
-        </div>`;
-
-    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-    document.body.appendChild(modal);
 }
 
 function previousMonth() { currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1); renderCalendar(); }
@@ -2532,7 +2457,7 @@ function exportBackup() {
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     a.href     = url;
-    a.download = `danisan-takip-yedek-${new Date().toISOString().slice(0,10)}.json`;
+    a.download = `stulio-yedek-${new Date().toISOString().slice(0,10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
     showNotification('Yedek dosyası indirildi ✓', 'success');
@@ -2597,164 +2522,237 @@ async function importBackup(input) {
 window.exportBackup = exportBackup;
 window.importBackup = importBackup;
 
-// ========================================
-// EXCEL / CSV DANIŞAN İMPORTU
-// ========================================
-
-async function importClientsFromExcel(input) {
-    const file = input.files?.[0];
-    if (!file) return;
-    if (!currentUser) { showNotification('Giriş yapmanız gerekiyor', 'error'); return; }
-
-    const isCSV = file.name.endsWith('.csv');
-
-    if (isCSV) {
-        const text = await file.text();
-        const lines = text.split('\n').filter(l => l.trim());
-        const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/['"]/g,''));
-        const nameIdx = headers.findIndex(h => h.includes('ad') || h.includes('isim') || h.includes('name'));
-        const phoneIdx = headers.findIndex(h => h.includes('tel') || h.includes('phone') || h.includes('gsm'));
-        const noteIdx = headers.findIndex(h => h.includes('not') || h.includes('note'));
-
-        if (nameIdx === -1) { showNotification('CSV dosyasında "ad" sütunu bulunamadı', 'error'); return; }
-
-        const newClients = [];
-        for (let i = 1; i < lines.length; i++) {
-            const cols = lines[i].split(',').map(c => c.trim().replace(/['"]/g,''));
-            if (!cols[nameIdx]) continue;
-            newClients.push({
-                id: 'c_' + Date.now() + '_' + i,
-                name: cols[nameIdx],
-                phone: phoneIdx >= 0 ? cols[phoneIdx] : '',
-                notes: noteIdx >= 0 ? cols[noteIdx] : '',
-                createdAt: new Date().toISOString()
-            });
-        }
-
-        if (!newClients.length) { showNotification('İçe aktarılacak danışan bulunamadı', 'error'); return; }
-        const ok = confirm(`${newClients.length} danışan içe aktarılacak. Devam edilsin mi?`);
-        if (!ok) return;
-
-        showNotification('Yükleniyor...', 'success');
-        for (const c of newClients) await upsertClient(currentUser.uid, c.id, c);
-        await loadDataFromFirestore(currentUser.uid);
-        syncGlobalDataRefs();
-        renderClients();
-        updateStats();
-        showNotification(`✓ ${newClients.length} danışan eklendi`, 'success');
-
-    } else {
-        // Excel - SheetJS kullan
-        if (!window.XLSX) {
-            showNotification('Excel desteği yükleniyor, tekrar deneyin', 'error');
-            const s = document.createElement('script');
-            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-            document.head.appendChild(s);
-            return;
-        }
-
-        const buffer = await file.arrayBuffer();
-        const wb = window.XLSX.read(buffer, { type: 'array' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = window.XLSX.utils.sheet_to_json(ws, { defval: '' });
-
-        if (!rows.length) { showNotification('Excel dosyası boş', 'error'); return; }
-
-        const firstRow = Object.keys(rows[0]).map(k => k.toLowerCase());
-        const nameKey = Object.keys(rows[0]).find(k => k.toLowerCase().includes('ad') || k.toLowerCase().includes('isim') || k.toLowerCase().includes('name'));
-        const phoneKey = Object.keys(rows[0]).find(k => k.toLowerCase().includes('tel') || k.toLowerCase().includes('phone') || k.toLowerCase().includes('gsm'));
-        const noteKey = Object.keys(rows[0]).find(k => k.toLowerCase().includes('not') || k.toLowerCase().includes('note'));
-
-        if (!nameKey) { showNotification('Excel dosyasında "Ad" sütunu bulunamadı', 'error'); return; }
-
-        const newClients = rows.filter(r => r[nameKey]).map((r, i) => ({
-            id: 'c_' + Date.now() + '_' + i,
-            name: String(r[nameKey]),
-            phone: phoneKey ? String(r[phoneKey]) : '',
-            notes: noteKey ? String(r[noteKey]) : '',
-            createdAt: new Date().toISOString()
-        }));
-
-        if (!newClients.length) { showNotification('İçe aktarılacak danışan bulunamadı', 'error'); return; }
-        const ok = confirm(`${newClients.length} danışan içe aktarılacak. Devam edilsin mi?`);
-        if (!ok) return;
-
-        showNotification('Yükleniyor...', 'success');
-        for (const c of newClients) await upsertClient(currentUser.uid, c.id, c);
-        await loadDataFromFirestore(currentUser.uid);
-        syncGlobalDataRefs();
-        renderClients();
-        updateStats();
-        showNotification(`✓ ${newClients.length} danışan eklendi`, 'success');
-    }
-    input.value = '';
-}
-
-window.importClientsFromExcel = importClientsFromExcel;
-
 // Uygulama başlarken fiyat şablonlarını yükle
 (async () => { await loadPriceTemplates(); })();
 
-// ========================================
-// TRIAL - PAYWALL & BANNER
-// ========================================
+// ============================================================
+// ÖZELLEŞTIRILEBILIR SEANS TÜRLERİ
+// ============================================================
 
-function showPaywall() {
-    document.body.innerHTML = `
-        <div style="
-            min-height:100vh; display:flex; align-items:center; justify-content:center;
-            font-family:'DM Sans',system-ui,sans-serif; background:#faf7f2; padding:20px;
-        ">
-            <div style="
-                background:white; border-radius:24px; padding:48px 40px; max-width:440px;
-                text-align:center; box-shadow:0 12px 40px rgba(0,0,0,.1);
-            ">
-                <div style="font-size:3rem;margin-bottom:16px;">🌿</div>
-                <h2 style="font-size:1.6rem;font-weight:700;color:#1e2730;margin-bottom:8px;">
-                    Deneme süreniz doldu
-                </h2>
-                <p style="color:#6b7a86;margin-bottom:32px;line-height:1.6;">
-                    7 günlük ücretsiz denemeniz tamamlandı.<br>
-                    Tüm verileriniz güvende, devam etmek için bir paket seçin.
-                </p>
-                <a href="/index.html#pricing" style="
-                    display:inline-block; padding:14px 32px;
-                    background:#1e2730; color:white; border-radius:10px;
-                    font-weight:600; text-decoration:none; font-size:15px;
-                ">
-                    Paket seç →
-                </a>
+// Varsayılan seans türleri — sektöre göre hazır paketler
+const SESSION_TYPE_PRESETS = {
+    saglik: {
+        label: '🏥 Sağlık & Terapi',
+        types: ['Fizyoterapi', 'Reformer Pilates', 'Yoga', 'Mat Pilates', 'Masaj', 'Osteopati', 'Kinesyo Bant']
+    },
+    guzellik: {
+        label: '💅 Güzellik & Bakım',
+        types: ['Manikür', 'Pedikür', 'Protez Tırnak', 'Kalıcı Oje', 'Nail Art', 'El Bakımı', 'Ayak Bakımı']
+    },
+    sac: {
+        label: '💇 Saç & Kuaför',
+        types: ['Saç Kesimi', 'Boyama', 'Röfle', 'Keratin', 'Perma', 'Fön', 'Maske']
+    },
+    spa: {
+        label: '🧖 Spa & Masaj',
+        types: ['Klasik Masaj', 'Aromaterapi', 'Derin Doku', 'Taş Masajı', 'Cilt Bakımı', 'Epilasyon']
+    },
+    fitness: {
+        label: '💪 Fitness & Spor',
+        types: ['Personal Training', 'Crossfit', 'Pilates', 'Yoga', 'Boks', 'Yüzme', 'Beslenme Danışmanlığı']
+    },
+    egitim: {
+        label: '📚 Eğitim & Danışmanlık',
+        types: ['Birebir Ders', 'Grup Dersi', 'Online Ders', 'Danışmanlık', 'Koçluk']
+    }
+};
+
+// Global seans türleri listesi
+let sessionTypes = [];
+
+// Yükle (Firestore'dan veya localStorage'dan)
+async function loadSessionTypes() {
+    try {
+        const stored = localStorage.getItem('sessionTypes_' + (currentUser?.uid || 'guest'));
+        if (stored) {
+            sessionTypes = JSON.parse(stored);
+            updateAllSessionTypeSelects();
+            return;
+        }
+    } catch(e) {}
+
+    // Firestore'dan dene
+    if (currentUser) {
+        try {
+            const profile = await getProfile(currentUser.uid);
+            if (profile?.sessionTypes?.length) {
+                sessionTypes = profile.sessionTypes;
+                saveSessionTypesLocal();
+                updateAllSessionTypeSelects();
+                return;
+            }
+        } catch(e) {}
+    }
+
+    // Varsayılan
+    sessionTypes = ['Fizyoterapi', 'Reformer Pilates', 'Yoga', 'Mat Pilates'];
+    updateAllSessionTypeSelects();
+}
+
+function saveSessionTypesLocal() {
+    try {
+        localStorage.setItem('sessionTypes_' + (currentUser?.uid || 'guest'), JSON.stringify(sessionTypes));
+    } catch(e) {}
+}
+
+async function saveSessionTypesToFirestore() {
+    if (!currentUser) return;
+    try {
+        await saveProfile(currentUser.uid, { sessionTypes });
+    } catch(e) { console.warn('sessionTypes Firestore kaydı:', e); }
+}
+
+// Tüm seans türü select'lerini güncelle
+function updateAllSessionTypeSelects() {
+    const selectIds = ['sessionType', 'filterSessionType', 'absType'];
+    selectIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const current = el.value;
+        if (id === 'filterSessionType') {
+            el.innerHTML = '<option value="all">Tüm Seans Türleri</option>' +
+                sessionTypes.map(t => `<option value="${t}">${t}</option>`).join('');
+        } else {
+            el.innerHTML = sessionTypes.map(t =>
+                `<option value="${t}" ${t === current ? 'selected' : ''}>${t}</option>`
+            ).join('');
+        }
+    });
+
+    // Haftalık program schedule type selects
+    for (let i = 0; i < 7; i++) {
+        const el = document.getElementById('schedType_' + i);
+        if (!el) continue;
+        const current = el.value;
+        el.innerHTML = sessionTypes.map(t =>
+            `<option value="${t}" ${t === current ? 'selected' : ''}>${t}</option>`
+        ).join('');
+    }
+
+    // Fiyat listesi modal
+    const ptType = document.getElementById('pt_type');
+    if (ptType) {
+        const current = ptType.value;
+        ptType.innerHTML = sessionTypes.map(t =>
+            `<option value="${t}" ${t === current ? 'selected' : ''}>${t}</option>`
+        ).join('');
+    }
+}
+
+// ─── SEANS TÜRLERİ YÖNETİM MODAL ───────────────────────────
+function openSessionTypesModal() {
+    const existing = document.getElementById('sessionTypesModal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'sessionTypesModal';
+    modal.className = 'modal active';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width:520px;">
+            <div class="modal-header">
+                <h3>🏷️ Seans Türleri</h3>
+                <button class="close-btn" onclick="document.getElementById('sessionTypesModal').remove()">✕</button>
             </div>
-        </div>
-    `;
+            <div class="modal-body">
+
+                <!-- Hazır paketler -->
+                <div class="form-group">
+                    <label>Hazır Paket Seç</label>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:4px;">
+                        ${Object.entries(SESSION_TYPE_PRESETS).map(([key, preset]) => `
+                        <button type="button" class="btn btn-secondary btn-sm"
+                            style="justify-content:flex-start; text-align:left;"
+                            onclick="loadPreset('${key}')">
+                            ${preset.label}
+                        </button>`).join('')}
+                    </div>
+                    <div class="form-hint">Seçince mevcut türlere ekler, sizmekini silersiniz.</div>
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- Mevcut türler -->
+                <div class="form-group">
+                    <label>Mevcut Seans Türleri</label>
+                    <div id="sessionTypesList" style="display:flex; flex-direction:column; gap:6px;"></div>
+                </div>
+
+                <!-- Yeni ekle -->
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Yeni Tür Ekle</label>
+                    <div style="display:flex; gap:8px;">
+                        <input type="text" id="newSessionType" placeholder="Örn: Epilasyon, Cilt Bakımı..."
+                            style="flex:1;" onkeydown="if(event.key==='Enter') addSessionType()">
+                        <button class="btn btn-primary btn-sm" onclick="addSessionType()">＋ Ekle</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="document.getElementById('sessionTypesModal').remove()">İptal</button>
+                <button class="btn btn-primary" onclick="saveSessionTypes()">💾 Kaydet</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    renderSessionTypesList();
 }
 
-function showTrialBanner(daysLeft) {
-    if (document.getElementById('trial-banner')) return;
-    const banner = document.createElement('div');
-    banner.id = 'trial-banner';
-    banner.style.cssText = `
-        position:fixed; bottom:20px; right:20px; z-index:9999;
-        background:#1e2730; color:white; padding:12px 20px;
-        border-radius:12px; font-family:'DM Sans',system-ui,sans-serif;
-        font-size:14px; box-shadow:0 8px 24px rgba(0,0,0,.2);
-        display:flex; align-items:center; gap:10px;
-    `;
-    banner.innerHTML = `
-        <span>⏳</span>
-        <span>Deneme süreniz: <strong>${daysLeft} gün</strong> kaldı</span>
-                <a href="/index.html#pricing" style="
-                    display:inline-block; padding:14px 32px;
-                    background:#1e2730; color:white; border-radius:10px;
-                    font-weight:600; text-decoration:none; font-size:15px;
-                ">
-           style="color:#7a9e94;font-weight:600;text-decoration:none;margin-left:4px;">
-            Devam et →
-        </a>
-        <button onclick="this.parentElement.remove()" style="
-            background:none;border:none;color:rgba(255,255,255,.5);
-            cursor:pointer;font-size:16px;padding:0;margin-left:4px;
-        ">✕</button>
-    `;
-    document.body.appendChild(banner);
+function renderSessionTypesList() {
+    const el = document.getElementById('sessionTypesList');
+    if (!el) return;
+    if (!sessionTypes.length) {
+        el.innerHTML = '<div style="color:var(--stone); font-size:13px; padding:8px;">Henüz tür eklenmemiş</div>';
+        return;
+    }
+    el.innerHTML = sessionTypes.map((t, i) => `
+        <div style="display:flex; align-items:center; gap:8px; padding:9px 12px;
+             background:var(--surface-2); border-radius:var(--r-sm); border:1px solid var(--border-soft);">
+            <span style="flex:1; font-size:13px; font-weight:500;">${t}</span>
+            <button onclick="removeSessionType(${i})"
+                style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:16px; padding:0 4px;">✕</button>
+        </div>`).join('');
 }
+
+function addSessionType() {
+    const input = document.getElementById('newSessionType');
+    const val = input?.value.trim();
+    if (!val) return;
+    if (sessionTypes.includes(val)) {
+        showNotification('Bu tür zaten var', 'warning');
+        return;
+    }
+    sessionTypes.push(val);
+    if (input) input.value = '';
+    renderSessionTypesList();
+    showNotification(val + ' eklendi', 'success');
+}
+
+function removeSessionType(i) {
+    sessionTypes.splice(i, 1);
+    renderSessionTypesList();
+}
+
+function loadPreset(key) {
+    const preset = SESSION_TYPE_PRESETS[key];
+    if (!preset) return;
+    preset.types.forEach(t => {
+        if (!sessionTypes.includes(t)) sessionTypes.push(t);
+    });
+    renderSessionTypesList();
+    showNotification(preset.label + ' türleri eklendi', 'success');
+}
+
+async function saveSessionTypes() {
+    saveSessionTypesLocal();
+    await saveSessionTypesToFirestore();
+    updateAllSessionTypeSelects();
+    document.getElementById('sessionTypesModal')?.remove();
+    showNotification('Seans türleri kaydedildi ✓', 'success');
+}
+
+window.openSessionTypesModal = openSessionTypesModal;
+window.addSessionType        = addSessionType;
+window.removeSessionType     = removeSessionType;
+window.loadPreset            = loadPreset;
+window.saveSessionTypes      = saveSessionTypes;
+window.loadSessionTypes      = loadSessionTypes;
+window.updateAllSessionTypeSelects = updateAllSessionTypeSelects;

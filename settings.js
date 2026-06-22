@@ -99,7 +99,7 @@ const THEMES = {
 
 // Varsayılan profil
 const DEFAULT_PROFILE = {
-    businessName: 'Danışan Takip',
+    businessName: 'Stulio',
     tagline:      'Fizyoterapi · Pilates · Yoga',
     logoEmoji:    '🌿',
     phone:        '',
@@ -125,7 +125,7 @@ function applyProfile(profile) {
     if (nameEl)  nameEl.textContent  = _currentProfile.businessName || DEFAULT_PROFILE.businessName;
     if (tagEl)   tagEl.textContent   = _currentProfile.tagline      || DEFAULT_PROFILE.tagline;
     if (iconEl)  iconEl.textContent  = _currentProfile.logoEmoji    || DEFAULT_PROFILE.logoEmoji;
-    if (titleEl) titleEl.textContent = (_currentProfile.businessName || 'Danışan Takip') + ' — Studio';
+    if (titleEl) titleEl.textContent = (_currentProfile.businessName || 'Stulio') + ' — Studio';
 
     // Tema
     applyTheme(_currentProfile.theme || 'sage');
@@ -230,6 +230,20 @@ function openSettings() {
                 <div class="form-group">
                     <label>Website</label>
                     <input type="text" id="set_website" value="${p.website || ''}" placeholder="www.isletmem.com">
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- Seans Türleri -->
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 16px;
+                     background:var(--surface-2); border-radius:var(--r-md); border:1px solid var(--border-soft); margin-bottom:16px;">
+                    <div>
+                        <div style="font-size:13px; font-weight:600; color:var(--ink);">🏷️ Seans Türleri</div>
+                        <div style="font-size:12px; color:var(--stone); margin-top:2px;">Fizyoterapi, nail, güzellik... kendi türlerinizi ekleyin</div>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('settingsModal').remove(); openSessionTypesModal()">
+                        Düzenle →
+                    </button>
                 </div>
 
                 <div class="divider"></div>
