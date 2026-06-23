@@ -523,7 +523,11 @@ footer {
       </p>
       <div class="hero-actions">
         <a href="login.html" class="btn-hero-primary">Ücretsiz Başla <span>→</span></a>
-        <a href="#features" class="btn-hero-secondary">Özellikleri Gör</a>
+        <button id="pwaInstallBtn" class="btn-hero-secondary" style="display:none;"
+            onclick="installPWA()">
+            📱 Uygulamayı Yükle
+        </button>
+        <a href="#features" class="btn-hero-secondary" id="featuresBtn">Özellikleri Gör</a>
       </div>
       <div class="hero-trust">
         <span class="hero-stars">★★★★★</span>
@@ -863,6 +867,37 @@ document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
           .catch(function(err) { console.warn('SW hatası:', err); });
       });
     }
+
+    // PWA Install
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const btn = document.getElementById('pwaInstallBtn');
+        const featBtn = document.getElementById('featuresBtn');
+        if (btn) btn.style.display = 'inline-flex';
+        if (featBtn) featBtn.style.display = 'none';
+    });
+
+    window.installPWA = function() {
+        if (!deferredPrompt) {
+            alert('Yüklemek için tarayıcı menüsünden "Ana ekrana ekle" seçeneğini kullanın.');
+            return;
+        }
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((result) => {
+            if (result.outcome === 'accepted') {
+                document.getElementById('pwaInstallBtn').style.display = 'none';
+                document.getElementById('featuresBtn').style.display = 'inline-flex';
+            }
+            deferredPrompt = null;
+        });
+    };
+
+    window.addEventListener('appinstalled', () => {
+        const btn = document.getElementById('pwaInstallBtn');
+        if (btn) btn.style.display = 'none';
+    });
   </script>
 </body>
 </html>
