@@ -3,9 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Danışan Takip — Studio</title>
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#5f8076">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Stulio">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <title>Stulio — Studio</title>
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -18,13 +25,17 @@
         <div class="header-brand">
           <div class="brand-icon" id="brandIcon">🌿</div>
           <div class="brand-text">
-            <h1 id="brandName">Danışan Takip</h1>
+            <h1 id="brandName">Stulio</h1>
             <p id="brandTagline">Fizyoterapi · Pilates · Yoga</p>
           </div>
         </div>
 
         <div class="header-actions">
           <!-- Settings button (always visible) -->
+          <button id="appInstallBtn" class="btn btn-ghost btn-sm" onclick="installPWA()"
+              title="Uygulamayı Telefona Yükle" style="display:none; padding:8px 12px; font-size:12px;">
+            📱 Yükle
+          </button>
           <button class="btn btn-ghost btn-sm" onclick="openSettings()" title="İşletme Ayarları" style="padding:8px 10px;">
             ⚙️
           </button>
@@ -35,6 +46,7 @@
               <div class="avatar">👤</div>
               <span id="currentUserName">Kullanıcı</span>
             </div>
+            <a href="index.html" class="btn btn-ghost btn-sm" style="font-size:12px;">🌐 Ana Sayfa</a>
             <button class="btn btn-secondary btn-sm" onclick="logoutUser()">Çıkış</button>
           </div>
           <!-- Guest -->
@@ -83,10 +95,6 @@
       <label class="btn btn-secondary btn-sm" style="cursor:pointer;" title="Yedek yükle">
         📥 Yükle
         <input type="file" accept=".json" onchange="importBackup(this)" style="display:none;">
-      </label>
-      <label class="btn btn-secondary btn-sm" style="cursor:pointer;" title="Excel/CSV'den danışan aktar">
-        📊 Excel Aktar
-        <input type="file" accept=".xlsx,.xls,.csv" onchange="importClientsFromExcel(this)" style="display:none;">
       </label>
     </div>
   </div>
@@ -147,10 +155,6 @@
       </select>
       <select class="filter-select" id="filterSessionType" onchange="renderClients()">
         <option value="all">Tüm Seans Türleri</option>
-        <option value="Fizyoterapi">Fizyoterapi</option>
-        <option value="Reformer Pilates">Reformer Pilates</option>
-        <option value="Yoga">Yoga</option>
-        <option value="Mat Pilates">Mat Pilates</option>
       </select>
       <select class="filter-select" id="filterPayment" onchange="renderClients()">
         <option value="all">Tüm Ödemeler</option>
@@ -361,10 +365,7 @@
         <div class="form-group">
           <label>Seans Türü *</label>
           <select id="sessionType">
-            <option>Fizyoterapi</option>
-            <option>Reformer Pilates</option>
-            <option>Yoga</option>
-            <option>Mat Pilates</option>
+            <option>Yükleniyor...</option>
           </select>
         </div>
         <div class="form-group">
@@ -498,5 +499,14 @@
   import './dashboard.js';
   import './app.js';
 </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('./service-worker.js')
+          .then(function(reg) { console.log('SW kayıtlı:', reg.scope); })
+          .catch(function(err) { console.warn('SW hatası:', err); });
+      });
+    }
+  </script>
 </body>
 </html>

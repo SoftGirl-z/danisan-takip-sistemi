@@ -2,7 +2,7 @@
   "name": "Stulio — Stüdyo Yönetim Sistemi",
   "short_name": "Stulio",
   "description": "Fizyoterapi, pilates, yoga, güzellik merkezi için danışan yönetim sistemi",
-  "start_url": "./landing.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",

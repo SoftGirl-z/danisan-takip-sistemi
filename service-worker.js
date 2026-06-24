@@ -3,9 +3,9 @@
 const CACHE_NAME = 'stulio-v1';
 const urlsToCache = [
     './',
-    './index.html',
+    './app.html',
     './login.html',
-    './landing.html',
+    './index.html',
     './style.css',
     './app.js',
     './notifications.js',

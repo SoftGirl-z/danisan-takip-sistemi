@@ -117,7 +117,7 @@ async function logout() {
     if (!confirm('Çıkış yapmak istediğinizden emin misiniz?')) return;
     try {
         await fbLogout();
-        window.location.href = 'landing.html';
+        window.location.href = 'index.html';
     } catch (error) {
         alert('Çıkış hatası: ' + error.message);
     }

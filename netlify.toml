@@ -1,11 +1,6 @@
 [[redirects]]
-  from = "/"
-  to = "/landing.html"
-  status = 200
-
-[[redirects]]
   from = "/app"
-  to = "/index.html"
+  to = "/app.html"
   status = 200
 
 [[headers]]

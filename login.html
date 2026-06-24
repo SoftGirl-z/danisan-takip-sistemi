@@ -243,7 +243,7 @@
 
     <!-- Back to landing -->
     <div style="text-align:center; margin-bottom:16px;">
-        <a href="landing.html" style="font-size:13px; color:var(--stone); text-decoration:none;
+        <a href="index.html" style="font-size:13px; color:var(--stone); text-decoration:none;
             display:inline-flex; align-items:center; gap:6px;">
             &#8592; Ana Sayfaya Don
         </a>
@@ -338,7 +338,7 @@
       if (!email || !password) { alert('Lütfen e-posta ve şifre girin!'); return; }
       try {
         await fb.loginUser(email, password);
-        window.location.href = 'index.html';
+        window.location.href = 'app.html';
       } catch (err) { alert('❌ ' + err.message); }
     };
 
@@ -361,11 +361,11 @@
           createdAt:    new Date().toISOString(),
         };
         try { localStorage.setItem('studioProfile', JSON.stringify(profile)); } catch(e) {}
-        window.location.href = 'index.html';
+        window.location.href = 'app.html';
       } catch (err) { alert('❌ ' + err.message); }
     };
 
-    window.guestLogin = function () { window.location.href = 'index.html'; };
+    window.guestLogin = function () { window.location.href = 'app.html'; };
 
     window.showTab = function (tab, btn) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
