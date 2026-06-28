@@ -171,7 +171,22 @@
 
     <!-- Header row -->
     <div class="clients-header">
-      <h2>Danışanlar <span class="client-count-badge" id="clientCountBadge"><span id="clientCount">0</span> kişi</span></h2>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <h2>Danışanlar <span class="client-count-badge"><span id="clientCount">0</span> kişi</span></h2>
+        <div id="bulkActionBar" style="display:none; align-items:center; gap:8px; flex-wrap:wrap;">
+          <span id="selectedCount" style="font-size:13px; font-weight:600; color:var(--sage-dark);"></span>
+          <button class="btn btn-success btn-sm" onclick="bulkWhatsApp()">💬 Toplu WhatsApp</button>
+          <button class="btn btn-lavender btn-sm" onclick="bulkAddPackage()">📦 Paket Ekle</button>
+          <button class="btn btn-secondary btn-sm" onclick="clearBulkSelection()">✕ İptal</button>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px; color:var(--stone); cursor:pointer;">
+          <input type="checkbox" id="selectAllClients" onchange="toggleSelectAll(this.checked)"
+            style="accent-color:var(--sage-dark); width:15px; height:15px;">
+          Tümünü Seç
+        </label>
+      </div>
     </div>
 
     <div id="clientsList"></div>
@@ -426,6 +441,15 @@
         <label>Danışan *</label>
         <select id="packageClient"><option value="">— Seçiniz —</option></select>
       </div>
+      <button class="btn btn-secondary w-full" style="margin-bottom:12px;"
+          onclick="buildPackageFromPriceList()">
+          🏷️ Fiyat Listesinden Seç
+        </button>
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; color:var(--stone); font-size:12px;">
+          <div style="flex:1; height:1px; background:var(--border);"></div>
+          veya manuel gir
+          <div style="flex:1; height:1px; background:var(--border);"></div>
+        </div>
       <div class="form-group">
         <label>Paket Adı *</label>
         <input type="text" id="packageName" placeholder="Örn: 10 Seans Pilates Paketi">

@@ -938,10 +938,13 @@ function renderClients() {
         const statusClass = status === 'frozen' ? 'badge badge-frozen' : 'badge badge-active';
 
         return `
-        <div class="client-card" style="padding:16px 20px;">
+        <div class="client-card" style="padding:16px 20px;" id="card_${client.id}">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
                 <div style="flex:1; min-width:0;">
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
+                        <input type="checkbox" class="client-checkbox" data-id="${client.id}"
+                            onchange="onClientCheckChange()"
+                            style="accent-color:var(--sage-dark); width:15px; height:15px; flex-shrink:0;">
                         <span class="client-name" onclick="openEditClientModal('${client.id}')" style="font-size:1rem;">${client.name}</span>
                         <span class="${statusClass}">${statusLabel}</span>
                         ${totalDebt > 0 ? `<span class="badge" style="background:rgba(217,128,137,.12);color:var(--danger);border:1px solid rgba(217,128,137,.3);">
@@ -3428,3 +3431,82 @@ window.setCurrency       = setCurrency;
 window.fetchExchangeRates = fetchExchangeRates;
 window.loadSavedCurrency = loadSavedCurrency;
 window.currentCurrency   = currentCurrency;
+
+// ============================================================
+// TOPLU DANIŞAN SEÇİMİ
+// ============================================================
+function getSelectedClientIds() {
+    return [...document.querySelectorAll('.client-checkbox:checked')].map(cb => cb.dataset.id);
+}
+
+function onClientCheckChange() {
+    const selected = getSelectedClientIds();
+    const bar      = document.getElementById('bulkActionBar');
+    const countEl  = document.getElementById('selectedCount');
+    const allCb    = document.getElementById('selectAllClients');
+
+    if (bar)    bar.style.display    = selected.length > 0 ? 'flex' : 'none';
+    if (countEl) countEl.textContent = selected.length + ' danışan seçildi';
+
+    // Tümünü seç checkbox güncelle
+    const allBoxes = document.querySelectorAll('.client-checkbox');
+    if (allCb) {
+        allCb.checked       = allBoxes.length > 0 && selected.length === allBoxes.length;
+        allCb.indeterminate = selected.length > 0 && selected.length < allBoxes.length;
+    }
+}
+
+function toggleSelectAll(checked) {
+    document.querySelectorAll('.client-checkbox').forEach(cb => { cb.checked = checked; });
+    onClientCheckChange();
+}
+
+function clearBulkSelection() {
+    document.querySelectorAll('.client-checkbox').forEach(cb => { cb.checked = false; });
+    const allCb = document.getElementById('selectAllClients');
+    if (allCb) { allCb.checked = false; allCb.indeterminate = false; }
+    onClientCheckChange();
+}
+
+function bulkWhatsApp() {
+    const ids = getSelectedClientIds();
+    if (!ids.length) { showNotification('Danışan seçin', 'warning'); return; }
+
+    const items = ids.map(id => {
+        const client  = clients.find(c => c.id === id);
+        const session = sessions
+            .filter(s => s.clientId === id && s.status !== 'absent')
+            .sort((a,b) => new Date(b.date)-new Date(a.date))[0];
+        return client ? { client, session: session || { date:'', time:'', type:'' } } : null;
+    }).filter(Boolean);
+
+    if (!items.length) return;
+    window._bulkList = items;
+    window._bulkMap  = {};
+    items.forEach((x,i) => { window._bulkMap[i] = x; });
+
+    if (typeof sendAllWhatsApp === 'function') sendAllWhatsApp(items);
+    clearBulkSelection();
+}
+
+function bulkAddPackage() {
+    const ids = getSelectedClientIds();
+    if (!ids.length) { showNotification('Danışan seçin', 'warning'); return; }
+    if (ids.length > 1) {
+        showNotification(ids.length + ' danışan için paket eklenecek — sırayla açılacak', 'success');
+    }
+    // İlk danışan için paket modalını aç
+    openAddPackageModal(ids[0]);
+    // Sonrakiler için hatırlatma
+    if (ids.length > 1) {
+        window._pendingBulkPackage = ids.slice(1);
+    }
+    clearBulkSelection();
+}
+
+window.getSelectedClientIds = getSelectedClientIds;
+window.onClientCheckChange  = onClientCheckChange;
+window.toggleSelectAll      = toggleSelectAll;
+window.clearBulkSelection   = clearBulkSelection;
+window.bulkWhatsApp         = bulkWhatsApp;
+window.bulkAddPackage       = bulkAddPackage;
