@@ -935,66 +935,29 @@ function renderClients() {
         const statusClass = status === 'frozen' ? 'badge badge-frozen' : 'badge badge-active';
 
         return `
-        <div class="client-card">
-            <div class="client-card-header">
-                <div>
-                    <div class="client-name-row">
-                        <span class="client-name" onclick="openClientDetail('${client.id}')">${client.name}</span>
+        <div class="client-card" style="padding:16px 20px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
+                        <span class="client-name" onclick="openEditClientModal('${client.id}')" style="font-size:1rem;">${client.name}</span>
                         <span class="${statusClass}">${statusLabel}</span>
-                        ${activePackage ? `<span class="badge badge-package">📦 ${activePackage.name}</span>` : ''}
+                        ${totalDebt > 0 ? `<span class="badge" style="background:rgba(217,128,137,.12);color:var(--danger);border:1px solid rgba(217,128,137,.3);">
+                            ${typeof formatCurrency === 'function' ? formatCurrency(totalDebt) : totalDebt.toFixed(0)+' ₺'} borç</span>` : ''}
+                        ${activePackage ? `<span class="badge badge-package" style="font-size:10px;">${activePackage.remainingSessions} seans</span>` : ''}
                     </div>
-                    <div class="client-meta">
+                    <div style="font-size:12px; color:var(--stone); display:flex; gap:12px; flex-wrap:wrap;">
                         <span>📱 ${client.phone}</span>
-                        ${client.email ? `<span>📧 ${client.email}</span>` : ''}
+                        ${lastSessionDate !== '-' ? `<span>🕐 ${lastSessionDate}</span>` : ''}
                     </div>
                 </div>
-                <div class="client-card-right">
-                    <div>📅 Kayıt: ${createdAtStr}</div>
-                    <div>🧭 Son seans: ${lastSessionDate}</div>
-                    <div>📊 ${clientSessions.length} seans</div>
+                <div style="font-size:11px; color:var(--stone); text-align:right; flex-shrink:0; white-space:nowrap;">
+                    📅 ${createdAtStr}
                 </div>
             </div>
 
-            <div class="client-summary-grid">
-                <div class="summary-item">
-                    <div class="summary-label">Paket Tutarı</div>
-                    <div class="summary-value">${typeof formatCurrency === 'function' ? formatCurrency(totalPackageValue) : totalPackageValue.toFixed(0) + ' ₺'}</div>
-                </div>
-                <div class="summary-item">
-                    <div class="summary-label">Ödenen</div>
-                    <div class="summary-value">${typeof formatCurrency === 'function' ? formatCurrency(totalPaid) : totalPaid.toFixed(0) + ' ₺'}</div>
-                </div>
-                <div class="summary-item">
-                    <div class="summary-label">Kalan Borç</div>
-                    <div class="summary-value ${totalDebt > 0 ? 'debt-color' : ''}">${typeof formatCurrency === 'function' ? formatCurrency(totalDebt) : totalDebt.toFixed(0) + ' ₺'}</div>
-                </div>
-                <div class="summary-item">
-                    <div class="summary-label">Aktif Paket</div>
-                    <div class="summary-value">${clientPackages.some(p => p.status === 'active') ? '✓ Var' : '—'}</div>
-                </div>
-                <div class="summary-item">
-                    <div class="summary-label">Kalan Seans</div>
-                    <div class="summary-value">${activePackage ? activePackage.remainingSessions : '—'}</div>
-                </div>
-            </div>
-
-            ${(client.complaints || client.notes)
-                ? `<div class="client-notes-area">
-                    ${client.complaints ? `<div><strong>Şikayet:</strong> ${client.complaints}</div>` : ''}
-                    ${client.notes ? `<div><strong>Not:</strong> ${client.notes}</div>` : ''}
-                   </div>`
-                : ''}
-            ${lastMessage
-                ? `<div class="client-notes-area" style="background: linear-gradient(135deg, rgba(184,169,212,.1) 0%, rgba(143,173,161,.1) 100%); border-left-color: var(--lavender); margin-top:8px;">
-                    💬 <em>${lastMessage.text}</em>
-                   </div>`
-                : ''}
-
-            <div class="client-actions" style="position:relative;">
-                <!-- Ana butonlar — her zaman görünür -->
+            <div class="client-actions" style="position:relative; margin-top:12px; padding-top:12px; border-top:1px solid var(--border-soft);">
                 <button class="btn btn-success btn-sm" onclick="openAddSessionModal('${client.id}')">＋ Seans</button>
-                <button class="btn btn-lavender btn-sm" onclick="openAddPackageModal('${client.id}')">📦 Paket</button>
-                <button class="btn btn-primary btn-sm" onclick="openEditClientModal('${client.id}')">👤 Detay</button>
+                <button class="btn btn-ghost btn-sm" onclick="openEditClientModal('${client.id}')" style="color:var(--sage-dark); border:1.5px solid var(--sage-light);">📋 Detay</button>
                 <button class="btn btn-secondary btn-sm" onclick="openScheduleModal('${client.id}')">📅 Program</button>
                 <!-- Daha fazla menü -->
                 <button class="btn btn-secondary btn-sm" onclick="toggleClientMenu('${client.id}')"
