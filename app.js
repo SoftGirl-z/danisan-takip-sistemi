@@ -962,7 +962,11 @@ function renderClients() {
             </div>
 
             <div class="client-actions" style="position:relative; margin-top:12px; padding-top:12px; border-top:1px solid var(--border-soft);">
-                <button class="btn btn-success btn-sm" onclick="openAddSessionModal('${client.id}')">＋ Seans</button>
+                <button class="btn btn-success btn-sm" onclick="quickCheckIn('${client.id}')"
+                    style="background:linear-gradient(135deg,#6db89d,#4da080); gap:5px;">
+                    ✓ Geldi
+                </button>
+                <button class="btn btn-secondary btn-sm" onclick="openAddSessionModal('${client.id}')">＋ Seans</button>
                 <button class="btn btn-ghost btn-sm" onclick="openEditClientModal('${client.id}')" style="color:var(--sage-dark); border:1.5px solid var(--sage-light);">📋 Detay</button>
                 <button class="btn btn-secondary btn-sm" onclick="openScheduleModal('${client.id}')">📅 Program</button>
                 <!-- Daha fazla menü -->
@@ -2624,11 +2628,8 @@ async function loadSessionTypes() {
         } catch(e) {}
     }
 
-    // Varsayılan türler
-    sessionTypes = ['Fizyoterapi', 'Reformer Pilates', 'Yoga', 'Mat Pilates',
-                    'Masaj', 'Manikür', 'Pedikür', 'Protez Tırnak',
-                    'Saç Kesimi', 'Cilt Bakımı', 'Personal Training'];
-    saveSessionTypesLocal();
+    // Varsayılan türler yok — kullanıcı kendi eklesin
+    sessionTypes = [];
     updateAllSessionTypeSelects();
 }
 
@@ -3521,3 +3522,150 @@ window.toggleSelectAll      = toggleSelectAll;
 window.clearBulkSelection   = clearBulkSelection;
 window.bulkWhatsApp         = bulkWhatsApp;
 window.bulkAddPackage       = bulkAddPackage;
+
+// ============================================================
+// HIZLI CHECK-IN — "Geldi ✓"
+// ============================================================
+function quickCheckIn(clientId) {
+    const client = clients.find(c => c.id === clientId);
+    if (!client) return;
+
+    // Bugünün tarihi
+    const now  = new Date();
+    const date = now.getFullYear() + '-' +
+        String(now.getMonth()+1).padStart(2,'0') + '-' +
+        String(now.getDate()).padStart(2,'0');
+    const time = String(now.getHours()).padStart(2,'0') + ':' +
+        String(now.getMinutes()).padStart(2,'0');
+
+    // Seans türü — aktif paket varsa onun türünü al, yoksa ilk seans türü
+    const activePkg = packages.find(p => p.clientId === clientId && p.status === 'active');
+    const lastSession = sessions
+        .filter(s => s.clientId === clientId)
+        .sort((a,b) => new Date(b.date)-new Date(a.date))[0];
+    const type = lastSession?.type || (sessionTypes[0] || 'Genel');
+
+    // Bugün zaten check-in yapıldı mı?
+    const alreadyToday = sessions.find(s =>
+        s.clientId === clientId && s.date === date && s.status !== 'absent'
+    );
+
+    if (alreadyToday) {
+        if (!confirm(`${client.name} bugün (${time}) zaten ${alreadyToday.type} seansı var.\nYine de yeni seans eklensin mi?`)) return;
+    }
+
+    // Paket seçimi - birden fazla aktif varsa sor
+    const activePkgs = packages.filter(p => p.clientId === clientId && p.status === 'active');
+
+    if (activePkgs.length > 1) {
+        // Birden fazla paket var - hızlı seçim modalı
+        openQuickCheckInModal(clientId, client, date, time, type, activePkgs);
+    } else {
+        // Direkt kaydet
+        saveQuickCheckIn(clientId, date, time, type, activePkgs[0]?.id || null);
+    }
+}
+
+function openQuickCheckInModal(clientId, client, date, time, type, pkgs) {
+    const existing = document.getElementById('checkInModal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'checkInModal';
+    modal.className = 'modal active';
+
+    const inner = document.createElement('div');
+    inner.className = 'modal-content';
+    inner.style.maxWidth = '420px';
+
+    const header = document.createElement('div');
+    header.className = 'modal-header';
+    header.innerHTML = '<h3>✓ ' + client.name + ' Geldi</h3>';
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'close-btn';
+    closeBtn.innerHTML = '&#x2715;';
+    closeBtn.onclick = () => modal.remove();
+    header.appendChild(closeBtn);
+
+    const body = document.createElement('div');
+    body.className = 'modal-body';
+    body.innerHTML =
+        '<p style="font-size:13px; color:var(--stone); margin-bottom:14px;">Birden fazla aktif paket var, hangisinden düşülsün?</p>' +
+        pkgs.map((p, i) =>
+            '<div onclick="saveQuickCheckIn(\'' + clientId + '\',\'' + date + '\',\'' + time + '\',\'' + type + '\',\'' + p.id + '\'); document.getElementById(\'checkInModal\').remove()"' +
+            ' style="padding:12px 16px; background:var(--surface-2); border-radius:var(--r-md); border:1.5px solid var(--border);' +
+            ' cursor:pointer; margin-bottom:8px; transition:all .15s;"' +
+            ' onmouseover="this.style.borderColor=\'var(--sage-dark)\'"' +
+            ' onmouseout="this.style.borderColor=\'var(--border)\'">' +
+            '<div style="font-weight:600; font-size:14px;">' + p.name + '</div>' +
+            '<div style="font-size:12px; color:var(--stone); margin-top:3px;">' + (p.remainingSessions || 0) + ' seans kaldı</div>' +
+            '</div>'
+        ).join('');
+
+    inner.appendChild(header);
+    inner.appendChild(body);
+    modal.appendChild(inner);
+    modal.onclick = e => { if (e.target === modal) modal.remove(); };
+    document.body.appendChild(modal);
+}
+
+async function saveQuickCheckIn(clientId, date, time, type, packageId) {
+    if (!currentUser) { showNotification('Giriş yapın', 'error'); return; }
+
+    const session = {
+        id:        'ci-' + Date.now(),
+        clientId,
+        date,
+        time,
+        type,
+        duration:  60,
+        notes:     '[Hızlı Check-in]',
+        status:    'normal',
+        createdAt: new Date().toISOString()
+    };
+
+    await upsertSession(currentUser.uid, session.id, session);
+
+    // Paketten düş
+    if (packageId) {
+        const pkg = packages.find(p => p.id === packageId);
+        if (pkg && typeof pkg.remainingSessions === 'number' && pkg.remainingSessions > 0) {
+            const newRem = pkg.remainingSessions - 1;
+            await fbUpdatePackage(currentUser.uid, pkg.id, {
+                remainingSessions: newRem,
+                status: newRem === 0 ? 'completed' : 'active'
+            });
+            if (newRem === 0) {
+                showPackageWarningToast(clients.find(c=>c.id===clientId), pkg, 0);
+            } else if (newRem <= 2) {
+                showPackageWarningToast(clients.find(c=>c.id===clientId), pkg, newRem);
+            }
+        }
+    }
+
+    await loadDataFromFirestore(currentUser.uid);
+    syncGlobalDataRefs();
+    renderClients();
+    renderCalendar();
+    updateStats();
+    document.getElementById('checkInModal')?.remove();
+
+    // Kart üzerinde kısa animasyon
+    const card = document.getElementById('card_' + clientId);
+    if (card) {
+        card.style.transition = 'box-shadow .3s, border-color .3s';
+        card.style.boxShadow  = '0 0 0 3px rgba(109,184,157,.4)';
+        card.style.borderColor = 'var(--success)';
+        setTimeout(() => {
+            card.style.boxShadow  = '';
+            card.style.borderColor = '';
+        }, 2000);
+    }
+
+    const client = clients.find(c => c.id === clientId);
+    showNotification((client?.name || 'Danışan') + ' — ' + time + ' check-in kaydedildi ✓', 'success');
+}
+
+window.quickCheckIn         = quickCheckIn;
+window.saveQuickCheckIn     = saveQuickCheckIn;
+window.openQuickCheckInModal = openQuickCheckInModal;
