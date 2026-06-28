@@ -37,6 +37,10 @@
               title="Uygulamayı Telefona Yükle" style="display:none; padding:8px 12px; font-size:12px;">
             📱 Yükle
           </button>
+          <button id="currencyBtn" class="btn btn-ghost btn-sm" onclick="openCurrencyModal()"
+              title="Para Birimi" style="padding:8px 10px; font-size:12px;">
+            💱 ₺ TRY
+          </button>
           <button class="btn btn-ghost btn-sm" onclick="openSettings()" title="İşletme Ayarları" style="padding:8px 10px;">
             ⚙️
           </button>
@@ -209,22 +213,32 @@
   <!-- ══════════════════ FINANCE PAGE ══════════════════ -->
   <div id="financePage" class="page">
 
-    <!-- KPI Kartları -->
-    <div class="finance-summary" style="margin-bottom:20px;">
+    <!-- KPI Kartları - 5 kart -->
+    <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:20px;" id="financeKPIGrid">
       <div class="finance-card" onclick="openMonthlyIncome()">
-        <h3>Bu Ay Gelir</h3>
+        <h3>Bu Ay Tahsilat</h3>
         <div class="amount" id="monthlyIncome">0 ₺</div>
         <div style="font-size:12px; color:var(--stone); margin-top:6px;" id="monthlyChange"></div>
       </div>
       <div class="finance-card" onclick="openTotalIncome()">
-        <h3>Toplam Gelir</h3>
+        <h3>Toplam Tahsilat</h3>
         <div class="amount" id="totalIncome">0 ₺</div>
         <div style="font-size:12px; color:var(--stone); margin-top:6px;" id="totalPaymentCount"></div>
+      </div>
+      <div class="finance-card" style="cursor:default;">
+        <h3>Kazanılacak Gelir</h3>
+        <div class="amount" id="expectedIncome">0 ₺</div>
+        <div style="font-size:12px; color:var(--stone); margin-top:6px;" id="expectedDesc"></div>
       </div>
       <div class="finance-card" onclick="openPendingPayments()">
         <h3>Bekleyen Ödemeler</h3>
         <div class="amount" id="totalDebt">0 ₺</div>
         <div style="font-size:12px; color:var(--stone); margin-top:6px;" id="debtClientCount"></div>
+      </div>
+      <div class="finance-card" onclick="openExpenseModal()" style="cursor:pointer;">
+        <h3>Giderler</h3>
+        <div class="amount" id="totalExpense">0 ₺</div>
+        <div style="font-size:12px; color:var(--stone); margin-top:6px;">+ Gider Ekle</div>
       </div>
     </div>
 
@@ -257,19 +271,26 @@
 
     <!-- Ödeme geçmişi -->
     <div class="card">
-      <div class="card-header">
-        <h2>💳 Tüm Ödemeler</h2>
+      <div class="card-header" style="flex-wrap:wrap; gap:10px;">
+        <h2>💳 Ödemeler</h2>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <select id="financeFilterMethod" class="filter-select" style="min-width:120px;" onchange="renderFinance()">
+          <div class="search-input" style="min-width:160px;">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="financeSearch" placeholder="Danışan ara..." oninput="renderPaymentHistory()">
+          </div>
+          <select id="financeFilterMethod" class="filter-select" style="min-width:110px;" onchange="renderPaymentHistory()">
             <option value="all">Tüm Yöntemler</option>
             <option value="Nakit">Nakit</option>
             <option value="Kredi Kartı">Kredi Kartı</option>
             <option value="Banka Transferi">Banka Transferi</option>
             <option value="Dijital Cüzdan">Dijital Cüzdan</option>
           </select>
-          <select id="financeFilterMonth" class="filter-select" style="min-width:120px;" onchange="renderFinance()">
+          <select id="financeFilterMonth" class="filter-select" style="min-width:110px;" onchange="renderPaymentHistory()">
             <option value="all">Tüm Aylar</option>
           </select>
+          <input type="date" id="financeFromDate" class="filter-select" style="min-width:120px;" onchange="renderPaymentHistory()">
+          <input type="date" id="financeToDate" class="filter-select" style="min-width:120px;" onchange="renderPaymentHistory()">
+          <button class="btn btn-secondary btn-sm" onclick="clearFinanceFilters()">↺</button>
         </div>
       </div>
       <div class="card-body" style="padding:0;">
@@ -352,6 +373,13 @@
       <div id="sessionPkgWarn" style="display:none; padding:10px 14px;
            background:rgba(109,184,157,.12); border-left:3px solid var(--success);
            border-radius:var(--r-sm); font-size:13px; color:var(--sage-dark); margin-bottom:12px;"></div>
+      <div id="sessionPackageSelect" style="display:none;" class="form-group">
+        <label>Hangi Paketten Düşülsün? *</label>
+        <select id="sessionPackageId" style="width:100%; padding:11px 14px; border:1.5px solid var(--border); border-radius:var(--r-md); font-size:14px;">
+          <option value="">— Paket seçin —</option>
+        </select>
+        <div class="form-hint">Birden fazla aktif paketiniz var, lütfen seçin.</div>
+      </div>
       <div class="form-row">
         <div class="form-group">
           <label>Tarih *</label>
@@ -465,6 +493,116 @@
       <button class="btn btn-secondary" onclick="closePaymentModal()">İptal</button>
       <button class="btn btn-success" onclick="savePayment()">✓ Ödemeyi Kaydet</button>
     </div>
+  </div>
+</div>
+
+<!-- Seans Düzenleme Modal -->
+<div id="editSessionModal" class="modal">
+  <div class="modal-content" style="max-width:480px;">
+    <div class="modal-header">
+      <h3>✏️ Seans Düzenle</h3>
+      <button class="close-btn" onclick="document.getElementById('editSessionModal').classList.remove('active')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editSessionId">
+      <div class="form-group">
+        <label>Danışan</label>
+        <select id="editSessionClient"></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tarih *</label>
+          <input type="date" id="editSessionDate">
+        </div>
+        <div class="form-group">
+          <label>Saat *</label>
+          <input type="time" id="editSessionTime">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Seans Türü</label>
+          <select id="editSessionType"></select>
+        </div>
+        <div class="form-group">
+          <label>Süre (dk)</label>
+          <input type="number" id="editSessionDuration" value="60" min="15" step="15">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Durum</label>
+        <select id="editSessionStatus">
+          <option value="normal">Normal</option>
+          <option value="absent">Devamsız</option>
+          <option value="telafi">Telafi</option>
+          <option value="scheduled">Programlı</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Notlar</label>
+        <textarea id="editSessionNotes" rows="2"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" onclick="deleteSessionFromEdit()">🗑 Sil</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('editSessionModal').classList.remove('active')">İptal</button>
+      <button class="btn btn-primary" onclick="saveEditedSession()">💾 Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- Gider Ekleme Modal -->
+<div id="expenseModal" class="modal">
+  <div class="modal-content" style="max-width:460px;">
+    <div class="modal-header">
+      <h3>💸 Gider Ekle / Listele</h3>
+      <button class="close-btn" onclick="document.getElementById('expenseModal').classList.remove('active')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Açıklama *</label>
+          <input type="text" id="expenseDesc" placeholder="Kira, malzeme, vs.">
+        </div>
+        <div class="form-group">
+          <label>Tutar *</label>
+          <input type="number" id="expenseAmount" placeholder="0" step="0.01">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tarih</label>
+          <input type="date" id="expenseDate">
+        </div>
+        <div class="form-group">
+          <label>Kategori</label>
+          <select id="expenseCategory">
+            <option>Kira</option>
+            <option>Malzeme</option>
+            <option>Personel</option>
+            <option>Fatura</option>
+            <option>Pazarlama</option>
+            <option>Diğer</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary w-full" style="margin-bottom:16px;" onclick="saveExpense()">＋ Gider Ekle</button>
+      <div id="expenseList"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('expenseModal').classList.remove('active')">Kapat</button>
+    </div>
+  </div>
+</div>
+
+<!-- Danışan Düzenleme Modal -->
+<div id="editClientModal" class="modal">
+  <div class="modal-content large">
+    <div class="modal-header">
+      <h3 id="editClientTitle">✏️ Danışan Detay & Düzenle</h3>
+      <button class="close-btn" onclick="document.getElementById('editClientModal').classList.remove('active')">✕</button>
+    </div>
+    <div class="modal-body" id="editClientBody"></div>
   </div>
 </div>
 

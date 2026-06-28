@@ -90,6 +90,14 @@ window.addEventListener('load', async function() {
         // Seans türlerini yükle
         await loadSessionTypes();
 
+        // Giderleri yükle
+        await loadExpenses();
+        updateFinanceKPIs();
+
+        // Döviz
+        loadSavedCurrency();
+        fetchExchangeRates();
+
         // Doğum günü kontrolü
         if (typeof showBirthdayAlert === 'function') {
             showBirthdayAlert(clients);
@@ -598,8 +606,12 @@ async function saveSession() {
     // Firestore'a yaz
     await upsertSession(currentUser.uid, session.id, session);
 
-    // Paket seans azaltma (aktif paket varsa)
-    const pkg = packages.find(p => p.clientId === clientId && p.status === 'active');
+    // Paket seans azaltma - seçili paket varsa onu kullan, yoksa aktif paketi bul
+    const _pkgId = window._overridePackageId;
+    window._overridePackageId = null;
+    const pkg = _pkgId
+        ? packages.find(p => p.id === _pkgId)
+        : packages.find(p => p.clientId === clientId && p.status === 'active');
     if (pkg && typeof pkg.remainingSessions === 'number' && pkg.remainingSessions > 0) {
         const newRemaining = pkg.remainingSessions - 1;
         const newStatus = newRemaining === 0 ? 'completed' : pkg.status;
@@ -946,15 +958,15 @@ function renderClients() {
             <div class="client-summary-grid">
                 <div class="summary-item">
                     <div class="summary-label">Paket Tutarı</div>
-                    <div class="summary-value">${totalPackageValue.toFixed(0)} ₺</div>
+                    <div class="summary-value">${typeof formatCurrency === 'function' ? formatCurrency(totalPackageValue) : totalPackageValue.toFixed(0) + ' ₺'}</div>
                 </div>
                 <div class="summary-item">
                     <div class="summary-label">Ödenen</div>
-                    <div class="summary-value">${totalPaid.toFixed(0)} ₺</div>
+                    <div class="summary-value">${typeof formatCurrency === 'function' ? formatCurrency(totalPaid) : totalPaid.toFixed(0) + ' ₺'}</div>
                 </div>
                 <div class="summary-item">
                     <div class="summary-label">Kalan Borç</div>
-                    <div class="summary-value ${totalDebt > 0 ? 'debt-color' : ''}">${totalDebt.toFixed(0)} ₺</div>
+                    <div class="summary-value ${totalDebt > 0 ? 'debt-color' : ''}">${typeof formatCurrency === 'function' ? formatCurrency(totalDebt) : totalDebt.toFixed(0) + ' ₺'}</div>
                 </div>
                 <div class="summary-item">
                     <div class="summary-label">Aktif Paket</div>
@@ -1374,11 +1386,19 @@ function renderFinance() {
     const totalIncome   = payments.reduce((s,p) => s+p.amount, 0);
     const debts         = packages.filter(p => (p.price||0) > (p.paidAmount||0));
     const totalDebt     = debts.reduce((s,p) => s+((p.price||0)-(p.paidAmount||0)), 0);
+    const totalExpAmt   = (typeof expenses !== 'undefined' ? expenses : []).reduce((s,e) => s+e.amount, 0);
+    const expectedAmt   = packages.reduce((s,p) => s+(p.price||0), 0);
 
     // KPI kartları
-    document.getElementById('monthlyIncome').textContent = monthlyIncome.toFixed(0) + ' ₺';
-    document.getElementById('totalIncome').textContent   = totalIncome.toFixed(0) + ' ₺';
-    document.getElementById('totalDebt').textContent     = totalDebt.toFixed(0) + ' ₺';
+    document.getElementById('monthlyIncome').textContent  = monthlyIncome.toFixed(0) + ' ₺';
+    document.getElementById('totalIncome').textContent    = totalIncome.toFixed(0) + ' ₺';
+    document.getElementById('totalDebt').textContent      = totalDebt.toFixed(0) + ' ₺';
+    const expEl = document.getElementById('totalExpense');
+    if (expEl) expEl.textContent = totalExpAmt.toFixed(0) + ' ₺';
+    const expInc = document.getElementById('expectedIncome');
+    if (expInc) expInc.textContent = expectedAmt.toFixed(0) + ' ₺';
+    const expDesc = document.getElementById('expectedDesc');
+    if (expDesc) expDesc.textContent = packages.length + ' paket toplam';
 
     // Alt bilgiler
     const changeEl = document.getElementById('monthlyChange');
@@ -1467,10 +1487,21 @@ function renderPaymentHistory() {
 
     const methodFilter = document.getElementById('financeFilterMethod')?.value || 'all';
     const monthFilter  = document.getElementById('financeFilterMonth')?.value  || 'all';
+    const searchVal    = (document.getElementById('financeSearch')?.value || '').toLowerCase().trim();
+    const fromDate     = document.getElementById('financeFromDate')?.value || '';
+    const toDate       = document.getElementById('financeToDate')?.value   || '';
 
     let filtered = [...payments].sort((a,b) => new Date(b.date)-new Date(a.date));
     if (methodFilter !== 'all') filtered = filtered.filter(p => p.method === methodFilter);
     if (monthFilter  !== 'all') filtered = filtered.filter(p => p.date?.startsWith(monthFilter));
+    if (fromDate)               filtered = filtered.filter(p => p.date >= fromDate);
+    if (toDate)                 filtered = filtered.filter(p => p.date <= toDate);
+    if (searchVal) {
+        filtered = filtered.filter(p => {
+            const c = clients.find(c => c.id === p.clientId);
+            return c && c.name.toLowerCase().includes(searchVal);
+        });
+    }
 
     if (!filtered.length) {
         container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">💳</div><p>Ödeme bulunamadı</p></div>`;
@@ -2593,8 +2624,11 @@ async function loadSessionTypes() {
         } catch(e) {}
     }
 
-    // Varsayılan
-    sessionTypes = ['Fizyoterapi', 'Reformer Pilates', 'Yoga', 'Mat Pilates'];
+    // Varsayılan türler
+    sessionTypes = ['Fizyoterapi', 'Reformer Pilates', 'Yoga', 'Mat Pilates',
+                    'Masaj', 'Manikür', 'Pedikür', 'Protez Tırnak',
+                    'Saç Kesimi', 'Cilt Bakımı', 'Personal Training'];
+    saveSessionTypesLocal();
     updateAllSessionTypeSelects();
 }
 
@@ -2765,3 +2799,606 @@ window.loadPreset            = loadPreset;
 window.saveSessionTypes      = saveSessionTypes;
 window.loadSessionTypes      = loadSessionTypes;
 window.updateAllSessionTypeSelects = updateAllSessionTypeSelects;
+
+// ============================================================
+// SEANS DÜZENLEME
+// ============================================================
+function openEditSessionModal(sessionId) {
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return;
+
+    document.getElementById('editSessionId').value = sessionId;
+    document.getElementById('editSessionDate').value = session.date || '';
+    document.getElementById('editSessionTime').value = session.time || '';
+    document.getElementById('editSessionDuration').value = session.duration || 60;
+    document.getElementById('editSessionNotes').value = session.notes || '';
+    document.getElementById('editSessionStatus').value = session.status || 'normal';
+
+    // Client select
+    const clientSel = document.getElementById('editSessionClient');
+    clientSel.innerHTML = clients.map(c =>
+        `<option value="${c.id}" ${c.id === session.clientId ? 'selected' : ''}>${c.name}</option>`
+    ).join('');
+
+    // Type select
+    const typeSel = document.getElementById('editSessionType');
+    typeSel.innerHTML = sessionTypes.map(t =>
+        `<option value="${t}" ${t === session.type ? 'selected' : ''}>${t}</option>`
+    ).join('');
+
+    document.getElementById('editSessionModal').classList.add('active');
+}
+
+async function saveEditedSession() {
+    if (!currentUser) return;
+    const id       = document.getElementById('editSessionId').value;
+    const clientId = document.getElementById('editSessionClient').value;
+    const date     = document.getElementById('editSessionDate').value;
+    const time     = document.getElementById('editSessionTime').value;
+    const type     = document.getElementById('editSessionType').value;
+    const duration = parseInt(document.getElementById('editSessionDuration').value) || 60;
+    const notes    = document.getElementById('editSessionNotes').value.trim();
+    const status   = document.getElementById('editSessionStatus').value;
+
+    if (!date || !time) { showNotification('Tarih ve saat zorunlu', 'error'); return; }
+
+    await upsertSession(currentUser.uid, id, { id, clientId, date, time, type, duration, notes, status });
+    await loadDataFromFirestore(currentUser.uid);
+    syncGlobalDataRefs();
+    renderClients();
+    renderCalendar();
+    document.getElementById('editSessionModal').classList.remove('active');
+    showNotification('Seans güncellendi ✓', 'success');
+}
+
+async function deleteSessionFromEdit() {
+    const id = document.getElementById('editSessionId').value;
+    if (!confirm('Bu seansı silmek istiyor musunuz?')) return;
+    await deleteSession(id);
+    document.getElementById('editSessionModal').classList.remove('active');
+    showNotification('Seans silindi', 'success');
+}
+
+window.openEditSessionModal = openEditSessionModal;
+window.saveEditedSession    = saveEditedSession;
+window.deleteSessionFromEdit = deleteSessionFromEdit;
+
+// ============================================================
+// GİDER TAKİBİ
+// ============================================================
+let expenses = [];
+
+async function loadExpenses() {
+    try {
+        const stored = localStorage.getItem('expenses_' + (currentUser?.uid || 'guest'));
+        if (stored) expenses = JSON.parse(stored);
+    } catch(e) { expenses = []; }
+    if (currentUser) {
+        try {
+            const profile = await getProfile(currentUser.uid);
+            if (profile?.expenses) expenses = profile.expenses;
+        } catch(e) {}
+    }
+}
+
+async function saveExpenses() {
+    try { localStorage.setItem('expenses_' + (currentUser?.uid || 'guest'), JSON.stringify(expenses)); } catch(e) {}
+    if (currentUser) {
+        try { await saveProfile(currentUser.uid, { expenses }); } catch(e) {}
+    }
+}
+
+function openExpenseModal() {
+    const d = new Date().toISOString().slice(0,10);
+    document.getElementById('expenseDate').value = d;
+    document.getElementById('expenseDesc').value = '';
+    document.getElementById('expenseAmount').value = '';
+    renderExpenseList();
+    document.getElementById('expenseModal').classList.add('active');
+}
+
+function renderExpenseList() {
+    const el = document.getElementById('expenseList');
+    if (!el) return;
+    if (!expenses.length) {
+        el.innerHTML = '<div style="text-align:center; color:var(--stone); font-size:13px; padding:16px;">Gider kaydı yok</div>';
+        return;
+    }
+    const sorted = [...expenses].sort((a,b) => new Date(b.date) - new Date(a.date));
+    el.innerHTML = `
+        <div style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--stone); margin-bottom:8px;">
+            Toplam: ${expenses.reduce((s,e) => s + e.amount, 0).toFixed(0)} ₺
+        </div>
+        ${sorted.map((exp, i) => `
+        <div style="display:flex; align-items:center; gap:10px; padding:9px 12px;
+             background:var(--surface-2); border-radius:var(--r-sm); margin-bottom:6px;">
+            <div style="flex:1;">
+                <div style="font-size:13px; font-weight:600;">${exp.desc}</div>
+                <div style="font-size:11px; color:var(--stone);">${exp.category} · ${new Date(exp.date).toLocaleDateString('tr-TR')}</div>
+            </div>
+            <strong style="color:var(--danger);">-${exp.amount.toFixed(0)} ₺</strong>
+            <button onclick="removeExpense(${i})" style="background:none; border:none; color:var(--stone); cursor:pointer; font-size:14px;">✕</button>
+        </div>`).join('')}`;
+}
+
+async function saveExpense() {
+    const desc   = document.getElementById('expenseDesc')?.value.trim();
+    const amount = parseFloat(document.getElementById('expenseAmount')?.value);
+    const date   = document.getElementById('expenseDate')?.value;
+    const cat    = document.getElementById('expenseCategory')?.value;
+    if (!desc || !amount || !date) { showNotification('Açıklama, tutar ve tarih zorunlu', 'error'); return; }
+    expenses.push({ desc, amount, date, category: cat, id: 'exp-' + Date.now() });
+    await saveExpenses();
+    renderExpenseList();
+    updateFinanceKPIs();
+    document.getElementById('expenseDesc').value = '';
+    document.getElementById('expenseAmount').value = '';
+    showNotification('Gider eklendi ✓', 'success');
+}
+
+async function removeExpense(i) {
+    expenses.splice(i, 1);
+    await saveExpenses();
+    renderExpenseList();
+    updateFinanceKPIs();
+}
+
+function updateFinanceKPIs() {
+    const totalExp = expenses.reduce((s,e) => s + e.amount, 0);
+    const expEl = document.getElementById('totalExpense');
+    if (expEl) expEl.textContent = totalExp.toFixed(0) + ' ₺';
+
+    // Kazanılacak gelir = aktif paketlerin toplam fiyatı
+    const expected = packages.reduce((s,p) => s + (p.price || 0), 0);
+    const expInc = document.getElementById('expectedIncome');
+    if (expInc) expInc.textContent = expected.toFixed(0) + ' ₺';
+    const expDesc = document.getElementById('expectedDesc');
+    if (expDesc) expDesc.textContent = packages.length + ' paket toplam';
+}
+
+window.openExpenseModal  = openExpenseModal;
+window.saveExpense       = saveExpense;
+window.removeExpense     = removeExpense;
+window.loadExpenses      = loadExpenses;
+window.updateFinanceKPIs = updateFinanceKPIs;
+
+// ============================================================
+// DANIŞAN DETAY & DÜZENLEME (TAM)
+// ============================================================
+function openEditClientModal(clientId) {
+    const client = clients.find(c => c.id === clientId);
+    if (!client) return;
+
+    const clientSessions = sessions
+        .filter(s => s.clientId === clientId)
+        .sort((a,b) => new Date(b.date) - new Date(a.date));
+    const clientPackages = packages.filter(p => p.clientId === clientId);
+    const clientPayments = payments.filter(p => p.clientId === clientId);
+
+    document.getElementById('editClientTitle').innerHTML = `✏️ ${client.name}`;
+
+    document.getElementById('editClientBody').innerHTML = `
+        <!-- Tab menü -->
+        <div style="display:flex; gap:0; border-bottom:1px solid var(--border-soft); margin-bottom:20px;">
+            ${[['bilgi','👤 Bilgiler'],['paketler','📦 Paketler'],['seanslar','📅 Seanslar'],['odemeler','💳 Ödemeler']]
+                .map(([id,label],i) => `
+                <button onclick="switchDetailTab('${id}')"
+                    id="dtab_${id}"
+                    style="padding:11px 18px; border:none; background:none; cursor:pointer; font-family:DM Sans,sans-serif;
+                           font-size:13px; font-weight:600; border-bottom:2.5px solid ${i===0?'var(--sage-dark)':'transparent'};
+                           color:${i===0?'var(--sage-dark)':'var(--stone)'}; transition:all .2s;">
+                    ${label}
+                </button>`).join('')}
+        </div>
+
+        <!-- BİLGİLER -->
+        <div id="dtab_bilgi_content">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Ad Soyad *</label>
+                    <input type="text" id="ec_name" value="${client.name || ''}">
+                </div>
+                <div class="form-group">
+                    <label>Telefon *</label>
+                    <input type="tel" id="ec_phone" value="${client.phone || ''}">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>E-posta</label>
+                    <input type="email" id="ec_email" value="${client.email || ''}">
+                </div>
+                <div class="form-group">
+                    <label>Doğum Tarihi</label>
+                    <input type="date" id="ec_birthdate" value="${client.birthdate || ''}">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Şikayetler / Tanı</label>
+                <textarea id="ec_complaints" rows="2">${client.complaints || ''}</textarea>
+            </div>
+            <div class="form-group">
+                <label>Notlar</label>
+                <textarea id="ec_notes" rows="2">${client.notes || ''}</textarea>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:4px;">
+                <button class="btn btn-primary" onclick="saveEditedClient('${clientId}')">💾 Kaydet</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteClient('${clientId}'); document.getElementById('editClientModal').classList.remove('active')">🗑 Sil</button>
+            </div>
+        </div>
+
+        <!-- PAKETLER -->
+        <div id="dtab_paketler_content" style="display:none;">
+            <button class="btn btn-lavender btn-sm" style="margin-bottom:14px;"
+                onclick="document.getElementById('editClientModal').classList.remove('active'); openAddPackageModal('${clientId}')">
+                ＋ Yeni Paket
+            </button>
+            ${clientPackages.length ? clientPackages.map(p => {
+                const used = (p.totalSessions||0) - (p.remainingSessions||0);
+                const pct  = p.totalSessions ? Math.round(used/p.totalSessions*100) : 0;
+                const debt = (p.price||0) - (p.paidAmount||0);
+                return `
+                <div class="package-card" style="margin-bottom:12px;">
+                    <div class="package-header">
+                        <div>
+                            <strong>${p.name}</strong>
+                            <span class="badge ${p.status==='active'?'badge-active':'badge-frozen'}" style="margin-left:8px;">
+                                ${p.status==='active'?'Aktif':'Tamamlandı'}
+                            </span>
+                        </div>
+                        <div style="font-size:12px; color:var(--stone);">
+                            ${p.startDate ? new Date(p.startDate).toLocaleDateString('tr-TR') : ''}
+                        </div>
+                    </div>
+                    <div style="font-size:13px; color:var(--ink-soft); margin:6px 0;">
+                        📊 ${used}/${p.totalSessions||0} seans &nbsp;|&nbsp;
+                        💳 ${(p.paidAmount||0).toFixed(0)} / ${(p.price||0).toFixed(0)} ₺
+                        ${debt > 0 ? `&nbsp;|&nbsp; <span style="color:var(--danger);">Kalan: ${debt.toFixed(0)} ₺</span>` : ''}
+                    </div>
+                    <div class="package-progress">
+                        <div class="package-progress-bar" style="width:${pct}%"></div>
+                    </div>
+                    <div style="display:flex; gap:8px; margin-top:10px;">
+                        ${debt > 0 ? `<button class="btn btn-success btn-sm" onclick="openPaymentModal('${p.id}')">💳 Ödeme Al</button>` : ''}
+                        <button class="btn btn-lavender btn-sm" onclick="openInstallmentModal('${p.id}')">📅 Taksit</button>
+                        <button class="btn btn-danger btn-sm" onclick="deletePackage('${p.id}')">🗑</button>
+                    </div>
+                </div>`;
+            }).join('') : '<p class="text-muted" style="padding:16px;">Paket yok</p>'}
+        </div>
+
+        <!-- SEANSLAR -->
+        <div id="dtab_seanslar_content" style="display:none;">
+            <button class="btn btn-success btn-sm" style="margin-bottom:14px;"
+                onclick="document.getElementById('editClientModal').classList.remove('active'); openAddSessionModal('${clientId}')">
+                ＋ Seans Ekle
+            </button>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+            ${clientSessions.length ? clientSessions.map(s => {
+                const statusLabel = {normal:'',absent:'🚫 Devamsız',telafi:'🔄 Telafi',scheduled:'📅 Programlı'}[s.status||'normal'];
+                return `
+                <div style="display:flex; align-items:center; gap:10px; padding:10px 14px;
+                     background:var(--surface-2); border-radius:var(--r-sm); border:1px solid var(--border-soft);">
+                    <div style="flex:1;">
+                        <div style="font-size:13px; font-weight:600;">${s.date} ${s.time}</div>
+                        <div style="font-size:12px; color:var(--stone);">${s.type} · ${s.duration}dk ${statusLabel}</div>
+                        ${s.notes ? `<div style="font-size:11px; color:var(--stone); margin-top:2px;">${s.notes.substring(0,60)}</div>` : ''}
+                    </div>
+                    <button class="btn btn-secondary btn-xs" onclick="openEditSessionModal('${s.id}')">✏️ Düzenle</button>
+                </div>`;
+            }).join('') : '<p class="text-muted" style="padding:16px;">Seans kaydı yok</p>'}
+            </div>
+        </div>
+
+        <!-- ÖDEMELER -->
+        <div id="dtab_odemeler_content" style="display:none;">
+            ${clientPayments.length ? `
+            <table class="finance-table">
+                <thead><tr><th>Tarih</th><th>Tutar</th><th>Yöntem</th><th>Paket</th></tr></thead>
+                <tbody>
+                ${clientPayments.sort((a,b)=>new Date(b.date)-new Date(a.date)).map(pay => {
+                    const pkg = packages.find(p => p.id === pay.packageId);
+                    return `<tr>
+                        <td>${new Date(pay.date).toLocaleDateString('tr-TR')}</td>
+                        <td><strong style="color:var(--sage-dark);">+${pay.amount.toFixed(0)} ₺</strong></td>
+                        <td>${pay.method||'—'}</td>
+                        <td style="font-size:12px; color:var(--stone);">${pkg?pkg.name:'—'}</td>
+                    </tr>`;
+                }).join('')}
+                </tbody>
+            </table>` : '<p class="text-muted" style="padding:16px;">Ödeme kaydı yok</p>'}
+        </div>`;
+
+    document.getElementById('editClientModal').classList.add('active');
+}
+
+function switchDetailTab(tabId) {
+    ['bilgi','paketler','seanslar','odemeler'].forEach(id => {
+        const content = document.getElementById('dtab_' + id + '_content');
+        const btn     = document.getElementById('dtab_' + id);
+        if (content) content.style.display = id === tabId ? 'block' : 'none';
+        if (btn) {
+            btn.style.borderBottomColor = id === tabId ? 'var(--sage-dark)' : 'transparent';
+            btn.style.color             = id === tabId ? 'var(--sage-dark)' : 'var(--stone)';
+        }
+    });
+}
+
+async function saveEditedClient(clientId) {
+    if (!currentUser) return;
+    const name      = document.getElementById('ec_name')?.value.trim();
+    const phone     = document.getElementById('ec_phone')?.value.trim();
+    const email     = document.getElementById('ec_email')?.value.trim();
+    const birthdate = document.getElementById('ec_birthdate')?.value;
+    const complaints= document.getElementById('ec_complaints')?.value.trim();
+    const notes     = document.getElementById('ec_notes')?.value.trim();
+
+    if (!name || !phone) { showNotification('Ad ve telefon zorunlu', 'error'); return; }
+
+    await fbUpdateClient(currentUser.uid, clientId, { name, phone, email, birthdate, complaints, notes });
+    await loadDataFromFirestore(currentUser.uid);
+    syncGlobalDataRefs();
+    renderClients();
+    showNotification('Danışan güncellendi ✓', 'success');
+    // Reload modal with fresh data
+    openEditClientModal(clientId);
+}
+
+window.openEditClientModal  = openEditClientModal;
+window.switchDetailTab      = switchDetailTab;
+window.saveEditedClient     = saveEditedClient;
+window.clearFinanceFilters  = function() {
+    ['financeSearch','financeFilterMethod','financeFilterMonth','financeFromDate','financeToDate'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (el.tagName === 'SELECT') el.value = 'all';
+        else el.value = '';
+    });
+    renderPaymentHistory();
+};
+
+
+// ============================================================
+// ÇOKLU PAKET SEÇİMİ - checkSessionConflict güncelle
+// ============================================================
+// Orijinal checkSessionConflict'i genişlet
+const _origCheckConflict = window.checkSessionConflict;
+window.checkSessionConflict = function() {
+    if (typeof _origCheckConflict === 'function') _origCheckConflict();
+
+    const clientId   = document.getElementById('sessionClient')?.value;
+    const pkgSelWrap = document.getElementById('sessionPackageSelect');
+    const pkgSel     = document.getElementById('sessionPackageId');
+    if (!pkgSelWrap || !pkgSel || !clientId) return;
+
+    // O danışanın aktif paketlerini bul
+    const activePkgs = packages.filter(p => p.clientId === clientId && p.status === 'active');
+    
+    if (activePkgs.length > 1) {
+        // Birden fazla aktif paket var — seçtir
+        pkgSel.innerHTML = '<option value="">— Paket seçin —</option>' +
+            activePkgs.map(p =>
+                `<option value="${p.id}">${p.name} (${p.remainingSessions} seans kaldı)</option>`
+            ).join('');
+        pkgSelWrap.style.display = 'block';
+    } else if (activePkgs.length === 1) {
+        // Tek paket — otomatik seç, gösterme
+        pkgSel.innerHTML = `<option value="${activePkgs[0].id}" selected>${activePkgs[0].name}</option>`;
+        pkgSelWrap.style.display = 'none';
+    } else {
+        pkgSel.innerHTML = '<option value="">Aktif paket yok</option>';
+        pkgSelWrap.style.display = 'none';
+    }
+};
+
+// saveSession'da seçilen paketi kullan
+const _origSaveSession = window.saveSession;
+// saveSession zaten app.js'te tanımlı, packageId'yi sessionPackageId'den alacak şekilde güncelle
+// Mevcut saveSession'ı wrap et
+window.saveSession = async function() {
+    // packageId seçilmişse kullan
+    const selectedPkgId = document.getElementById('sessionPackageId')?.value;
+    if (selectedPkgId) {
+        window._overridePackageId = selectedPkgId;
+    } else {
+        window._overridePackageId = null;
+    }
+    await _origSaveSession();
+};
+
+// ============================================================
+// FİYAT LİSTESİ - Paket eklerken fiyat listesinden seç
+// ============================================================
+function buildPackageFromPriceList() {
+    if (!priceTemplates.length) {
+        showNotification('Önce Fiyat Listesi sekmesinden şablon ekleyin', 'warning');
+        return;
+    }
+
+    const existing = document.getElementById('priceListPickerModal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'priceListPickerModal';
+    modal.className = 'modal active';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width:500px;">
+            <div class="modal-header">
+                <h3>🏷️ Fiyat Listesinden Seç</h3>
+                <button class="close-btn" onclick="document.getElementById('priceListPickerModal').remove()">✕</button>
+            </div>
+            <div class="modal-body" style="display:flex; flex-direction:column; gap:10px;">
+                ${priceTemplates.map((t, i) => `
+                <div onclick="applyPriceTemplate(${i})"
+                    style="padding:14px 16px; background:var(--surface-2); border-radius:var(--r-md);
+                           border:1.5px solid var(--border); cursor:pointer; transition:all .15s;"
+                    onmouseover="this.style.borderColor='var(--sage-dark)'; this.style.background='var(--sage-light)'"
+                    onmouseout="this.style.borderColor='var(--border)'; this.style.background='var(--surface-2)'">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="font-weight:600; font-size:14px; color:var(--ink);">${t.name}</div>
+                            <div style="font-size:12px; color:var(--stone); margin-top:3px;">
+                                ${t.sessions} seans · ${t.type || ''} · ${(t.price/t.sessions).toFixed(0)} ₺/seans
+                            </div>
+                        </div>
+                        <div style="font-size:1.2rem; font-weight:700; color:var(--sage-dark);">${t.price.toLocaleString('tr-TR')} ₺</div>
+                    </div>
+                </div>`).join('')}
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+}
+
+function applyPriceTemplate(i) {
+    const t = priceTemplates[i];
+    if (!t) return;
+    document.getElementById('packageName').value     = t.name;
+    document.getElementById('packageSessions').value = t.sessions;
+    document.getElementById('packagePrice').value    = t.price;
+    document.getElementById('priceListPickerModal')?.remove();
+    showNotification(t.name + ' seçildi', 'success');
+}
+
+window.buildPackageFromPriceList = buildPackageFromPriceList;
+window.applyPriceTemplate        = applyPriceTemplate;
+
+// ============================================================
+// INIT GÜNCELLEMELER
+// ============================================================
+// loadExpenses'ı auth sonrası çağır
+const _origOnAuth = window._authCallback;
+// Expose loadExpenses for init
+window._loadExpensesOnInit = async function() {
+    await loadExpenses();
+    updateFinanceKPIs();
+};
+
+
+// ============================================================
+// DÖVİZ BAZLI ÜCRET SİSTEMİ
+// ============================================================
+const CURRENCIES = {
+    TRY: { symbol: '₺', name: 'Türk Lirası', rate: 1 },
+    USD: { symbol: '$', name: 'Amerikan Doları', rate: null },
+    EUR: { symbol: '€', name: 'Euro', rate: null },
+    GBP: { symbol: '£', name: 'İngiliz Sterlini', rate: null },
+};
+
+let currentCurrency = 'TRY';
+let exchangeRates   = { TRY: 1, USD: null, EUR: null, GBP: null };
+
+// Döviz kurlarını çek (Frankfurter API - ücretsiz)
+async function fetchExchangeRates() {
+    try {
+        const res  = await fetch('https://api.frankfurter.app/latest?from=TRY&to=USD,EUR,GBP');
+        const data = await res.json();
+        if (data.rates) {
+            exchangeRates.USD = data.rates.USD;
+            exchangeRates.EUR = data.rates.EUR;
+            exchangeRates.GBP = data.rates.GBP;
+            exchangeRates.TRY = 1;
+            console.log('✅ Döviz kurları güncellendi:', exchangeRates);
+        }
+    } catch(e) {
+        console.warn('Döviz kuru alınamadı:', e);
+    }
+}
+
+// TRY -> seçili para birimine çevir
+function convertAmount(amountTRY, toCurrency) {
+    if (!toCurrency || toCurrency === 'TRY') return amountTRY;
+    const rate = exchangeRates[toCurrency];
+    if (!rate) return amountTRY;
+    return amountTRY * rate;
+}
+
+// Para birimini formatla
+function formatCurrency(amountTRY, currency) {
+    currency = currency || currentCurrency;
+    const cur = CURRENCIES[currency] || CURRENCIES.TRY;
+    const converted = convertAmount(amountTRY, currency);
+    return cur.symbol + converted.toFixed(2).replace(/\.00$/, '');
+}
+
+// Para birimi seçici modalı
+function openCurrencyModal() {
+    const existing = document.getElementById('currencyModal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'currencyModal';
+    modal.className = 'modal active';
+
+    const rateInfo = Object.entries(CURRENCIES).map(([code, cur]) => {
+        const rate = exchangeRates[code];
+        const rateStr = code === 'TRY' ? '1 ₺ = 1 ₺' :
+            rate ? `1 ₺ = ${rate.toFixed(4)} ${cur.symbol}` : 'Kur yükleniyor...';
+        return `
+        <div onclick="setCurrency('${code}')"
+            style="display:flex; align-items:center; justify-content:space-between;
+                   padding:14px 16px; background:${currentCurrency===code?'var(--sage-light)':'var(--surface-2)'};
+                   border:1.5px solid ${currentCurrency===code?'var(--sage-dark)':'var(--border)'};
+                   border-radius:var(--r-md); cursor:pointer; margin-bottom:8px; transition:all .15s;"
+            onmouseover="this.style.borderColor='var(--sage-dark)'"
+            onmouseout="this.style.borderColor='${currentCurrency===code?'var(--sage-dark)':'var(--border)'}'">
+            <div>
+                <span style="font-size:22px; margin-right:10px;">${cur.symbol}</span>
+                <strong style="font-size:14px;">${code}</strong>
+                <span style="font-size:13px; color:var(--stone); margin-left:6px;">${cur.name}</span>
+            </div>
+            <div style="font-size:12px; color:var(--stone);">${rateStr}</div>
+        </div>`;
+    }).join('');
+
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width:440px;">
+            <div class="modal-header">
+                <h3>💱 Para Birimi Seç</h3>
+                <button class="close-btn" onclick="document.getElementById('currencyModal').remove()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:13px; color:var(--stone); margin-bottom:16px;">
+                    Seçilen para birimi tüm tutarları ve raporları etkiler.
+                    Kurlar anlık olarak güncellenir.
+                </p>
+                ${rateInfo}
+                <button class="btn btn-secondary btn-sm w-full" style="margin-top:8px;"
+                    onclick="fetchExchangeRates().then(() => openCurrencyModal())">
+                    🔄 Kurları Güncelle
+                </button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+}
+
+function setCurrency(code) {
+    currentCurrency = code;
+    try { localStorage.setItem('stulioCurrency', code); } catch(e) {}
+    document.getElementById('currencyModal')?.remove();
+
+    // Tüm para tutarlarını güncelle
+    renderClients();
+    renderFinance();
+    updateStats();
+    showNotification('Para birimi ' + code + ' olarak ayarlandı', 'success');
+
+    // Currency buton güncelle
+    const btn = document.getElementById('currencyBtn');
+    if (btn) btn.textContent = '💱 ' + CURRENCIES[code].symbol + ' ' + code;
+}
+
+function loadSavedCurrency() {
+    try {
+        const saved = localStorage.getItem('stulioCurrency');
+        if (saved && CURRENCIES[saved]) currentCurrency = saved;
+    } catch(e) {}
+}
+
+// formatCurrency'yi tüm render'larda kullan
+window.formatCurrency    = formatCurrency;
+window.convertAmount     = convertAmount;
+window.openCurrencyModal = openCurrencyModal;
+window.setCurrency       = setCurrency;
+window.fetchExchangeRates = fetchExchangeRates;
+window.loadSavedCurrency = loadSavedCurrency;
+window.currentCurrency   = currentCurrency;

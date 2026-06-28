@@ -1224,3 +1224,11 @@ h3 { font-size: clamp(1rem, 2.5vw, 1.15rem); font-weight: 500; }
 @media (max-width: 640px) {
   #scheduleRows { max-height: 280px; overflow-y: auto; }
 }
+
+/* Finance KPI grid responsive */
+@media (max-width: 900px) {
+  #financeKPIGrid { grid-template-columns: repeat(3,1fr) !important; }
+}
+@media (max-width: 640px) {
+  #financeKPIGrid { grid-template-columns: repeat(2,1fr) !important; }
+}
