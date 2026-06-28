@@ -175,9 +175,10 @@
         <h2>Danışanlar <span class="client-count-badge"><span id="clientCount">0</span> kişi</span></h2>
         <div id="bulkActionBar" style="display:none; align-items:center; gap:8px; flex-wrap:wrap;">
           <span id="selectedCount" style="font-size:13px; font-weight:600; color:var(--sage-dark);"></span>
-          <button class="btn btn-success btn-sm" onclick="bulkWhatsApp()">💬 Toplu WhatsApp</button>
+          <button class="btn btn-success btn-sm" onclick="bulkAddSession()">＋ Seans Ekle</button>
           <button class="btn btn-lavender btn-sm" onclick="bulkAddPackage()">📦 Paket Ekle</button>
-          <button class="btn btn-secondary btn-sm" onclick="clearBulkSelection()">✕ İptal</button>
+          <button class="btn btn-secondary btn-sm" onclick="bulkWhatsApp()">💬 Toplu WhatsApp</button>
+          <button class="btn btn-ghost btn-sm" onclick="clearBulkSelection()" style="color:var(--stone);">✕ İptal</button>
         </div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">

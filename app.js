@@ -3261,7 +3261,7 @@ async function buildPackageFromPriceList() {
     header.innerHTML = '<h3>&#x1F3F7;&#xFE0F; Fiyat Listesinden Se&#231;</h3>';
     const closeBtn = document.createElement('button');
     closeBtn.className = 'close-btn';
-    closeBtn.textContent = '&#x2715;';
+    closeBtn.innerHTML = '&#x2715;';
     closeBtn.onclick = function() { modal.remove(); };
     header.appendChild(closeBtn);
 
@@ -3504,6 +3504,17 @@ function bulkAddPackage() {
     clearBulkSelection();
 }
 
+function bulkAddSession() {
+    const ids = getSelectedClientIds();
+    if (!ids.length) { showNotification('Danışan seçin', 'warning'); return; }
+    // İlk seçili danışan için seans modalını aç
+    openAddSessionModal(ids[0]);
+    if (ids.length > 1) {
+        showNotification(ids.length + ' danışan seçili — ilk danışan için seans açıldı', 'success');
+    }
+    clearBulkSelection();
+}
+window.bulkAddSession       = bulkAddSession;
 window.getSelectedClientIds = getSelectedClientIds;
 window.onClientCheckChange  = onClientCheckChange;
 window.toggleSelectAll      = toggleSelectAll;
