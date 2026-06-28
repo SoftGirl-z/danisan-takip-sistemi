@@ -89,6 +89,9 @@ window.addEventListener('load', async function() {
 
         // Seans türlerini yükle
         await loadSessionTypes();
+        // Fiyat listesini Firestore'dan yükle (auth sonrası)
+        await loadPriceTemplates();
+        if (typeof renderPriceList === 'function') renderPriceList();
 
         // Giderleri yükle
         await loadExpenses();
@@ -2258,24 +2261,45 @@ window.switchTab = function(tab) {
 let priceTemplates = [];
 
 async function loadPriceTemplates() {
-    try {
-        const stored = localStorage.getItem('priceTemplates_' + (currentUser?.uid || 'guest'));
-        if (stored) priceTemplates = JSON.parse(stored);
-    } catch(e) { priceTemplates = []; }
-
-    // Firestore'dan dene
+    // Firestore ÖNCELİKLİ — giriş yapılmışsa oradan al
     if (currentUser && typeof getProfile === 'function') {
         try {
             const profile = await getProfile(currentUser.uid);
-            if (profile?.priceTemplates) priceTemplates = profile.priceTemplates;
-        } catch(e) {}
+            if (profile?.priceTemplates?.length) {
+                priceTemplates = profile.priceTemplates;
+                // localStorage'ı da güncelle
+                try { localStorage.setItem('priceTemplates_' + currentUser.uid, JSON.stringify(priceTemplates)); } catch(e) {}
+                console.log('Fiyat listesi Firestore yüklendi:', priceTemplates.length, 'sablon');
+                return;
+            }
+        } catch(e) { console.warn('Fiyat listesi Firestore hatası:', e); }
     }
+    // Firestore'dan gelemediyse localStorage'dan al
+    try {
+        const uid = currentUser?.uid || 'guest';
+        const stored = localStorage.getItem('priceTemplates_' + uid);
+        if (stored) {
+            priceTemplates = JSON.parse(stored);
+            console.log('Fiyat listesi localStorage yüklendi:', priceTemplates.length);
+        }
+    } catch(e) { priceTemplates = []; }
 }
 
 async function savePriceTemplates() {
-    try { localStorage.setItem('priceTemplates_' + (currentUser?.uid || 'guest'), JSON.stringify(priceTemplates)); } catch(e) {}
-    if (currentUser && typeof saveProfile !== 'undefined') {
-        try { await saveProfile(currentUser.uid, { priceTemplates }); } catch(e) {}
+    const uid = currentUser?.uid || 'guest';
+    // Önce localStorage'a kaydet (hızlı)
+    try { localStorage.setItem('priceTemplates_' + uid, JSON.stringify(priceTemplates)); } catch(e) {}
+    // Sonra Firestore'a kaydet (kalıcı)
+    if (currentUser && typeof saveProfile === 'function') {
+        try {
+            await saveProfile(currentUser.uid, { priceTemplates });
+            console.log('Fiyat listesi Firestore kaydedildi');
+        } catch(e) {
+            console.error('❌ Fiyat listesi Firestore kayıt hatası:', e);
+            if (typeof showNotification === 'function') {
+                showNotification('Fiyat listesi kaydedilemedi: ' + (e.message || e), 'error');
+            }
+        }
     }
 }
 
@@ -2536,7 +2560,7 @@ window.exportBackup = exportBackup;
 window.importBackup = importBackup;
 
 // Uygulama başlarken fiyat şablonlarını yükle
-(async () => { await loadPriceTemplates(); })();
+// loadPriceTemplates auth sonrası çağrılıyor (yukarıda init bloğunda)
 
 // ============================================================
 // ÖZELLEŞTIRILEBILIR SEANS TÜRLERİ
@@ -3182,43 +3206,70 @@ window.saveSession = async function() {
 // ============================================================
 // FİYAT LİSTESİ - Paket eklerken fiyat listesinden seç
 // ============================================================
-function buildPackageFromPriceList() {
+async function buildPackageFromPriceList() {
+    // Önce Firestore'dan yükle (güncel listeyi al)
+    await loadPriceTemplates();
+
     if (!priceTemplates.length) {
-        showNotification('Önce Fiyat Listesi sekmesinden şablon ekleyin', 'warning');
+        showNotification('Önce 🏷️ Fiyat Listesi sekmesinden şablon ekleyin', 'warning');
         return;
     }
 
     const existing = document.getElementById('priceListPickerModal');
     if (existing) existing.remove();
 
+    // Kartları oluştur
+    const cardsHTML = priceTemplates.map((t, i) => {
+        const sym = t.currency === 'USD' ? '$' : t.currency === 'EUR' ? '€' : t.currency === 'GBP' ? '£' : '₺';
+        const perSession = t.sessions > 0 ? (t.price / t.sessions).toFixed(0) : '0';
+        var hoverIn  = "this.style.outline='2px solid var(--sage-dark)'";
+        var hoverOut = "this.style.outline=''";
+        return '<div onclick="applyPriceTemplate(' + i + ')"' +
+            ' style="padding:14px 16px; background:var(--surface-2); border-radius:var(--r-md);' +
+            ' border:1.5px solid var(--border); cursor:pointer; transition:all .15s; margin-bottom:8px;"' +
+            ' onmouseover="' + hoverIn + '"' +
+            ' onmouseout="' + hoverOut + '">' +
+            '<div style="display:flex; justify-content:space-between; align-items:center;">' +
+                '<div style="flex:1; min-width:0;">' +
+                    '<div style="font-weight:600; font-size:14px; color:var(--ink);">' + t.name + '</div>' +
+                    '<div style="font-size:12px; color:var(--stone); margin-top:3px;">' +
+                        t.sessions + ' seans' +
+                        (t.type ? ' · ' + t.type : '') +
+                        ' · ' + sym + perSession + '/seans' +
+                    '</div>' +
+                '</div>' +
+                '<div style="font-size:1.1rem; font-weight:700; color:var(--sage-dark); flex-shrink:0; margin-left:12px;">' +
+                    sym + t.price.toLocaleString('tr-TR') +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    }).join('');
+
     const modal = document.createElement('div');
     modal.id = 'priceListPickerModal';
     modal.className = 'modal active';
-    modal.innerHTML = `
-        <div class="modal-content" style="max-width:500px;">
-            <div class="modal-header">
-                <h3>🏷️ Fiyat Listesinden Seç</h3>
-                <button class="close-btn" onclick="document.getElementById('priceListPickerModal').remove()">✕</button>
-            </div>
-            <div class="modal-body" style="display:flex; flex-direction:column; gap:10px;">
-                ${priceTemplates.map((t, i) => `
-                <div onclick="applyPriceTemplate(${i})"
-                    style="padding:14px 16px; background:var(--surface-2); border-radius:var(--r-md);
-                           border:1.5px solid var(--border); cursor:pointer; transition:all .15s;"
-                    onmouseover="this.style.borderColor='var(--sage-dark)'; this.style.background='var(--sage-light)'"
-                    onmouseout="this.style.borderColor='var(--border)'; this.style.background='var(--surface-2)'">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <div style="font-weight:600; font-size:14px; color:var(--ink);">${t.name}</div>
-                            <div style="font-size:12px; color:var(--stone); margin-top:3px;">
-                                ${t.sessions} seans · ${t.type || ''} · ${(t.price/t.sessions).toFixed(0)} ₺/seans
-                            </div>
-                        </div>
-                        <div style="font-size:1.2rem; font-weight:700; color:var(--sage-dark);">${t.price.toLocaleString('tr-TR')} ₺</div>
-                    </div>
-                </div>`).join('')}
-            </div>
-        </div>`;
+
+    const inner = document.createElement('div');
+    inner.className = 'modal-content';
+    inner.style.maxWidth = '500px';
+
+    const header = document.createElement('div');
+    header.className = 'modal-header';
+    header.innerHTML = '<h3>&#x1F3F7;&#xFE0F; Fiyat Listesinden Se&#231;</h3>';
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'close-btn';
+    closeBtn.textContent = '&#x2715;';
+    closeBtn.onclick = function() { modal.remove(); };
+    header.appendChild(closeBtn);
+
+    const body = document.createElement('div');
+    body.className = 'modal-body';
+    body.innerHTML = cardsHTML;
+
+    inner.appendChild(header);
+    inner.appendChild(body);
+    modal.appendChild(inner);
+    modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
     document.body.appendChild(modal);
 }
 
