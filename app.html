@@ -436,14 +436,30 @@
           <input type="number" id="packageSessions" value="10" min="1">
         </div>
         <div class="form-group">
-          <label>Fiyat (₺) *</label>
-          <input type="number" id="packagePrice" step="0.01" placeholder="0.00">
+          <label>Fiyat *</label>
+          <div style="display:flex; gap:6px;">
+            <select id="packageCurrency" style="width:90px; padding:11px 8px; border:1.5px solid var(--border); border-radius:var(--r-md); font-size:14px; flex-shrink:0;">
+              <option value="TRY">₺ TRY</option>
+              <option value="USD">$ USD</option>
+              <option value="EUR">€ EUR</option>
+              <option value="GBP">£ GBP</option>
+            </select>
+            <input type="number" id="packagePrice" step="0.01" placeholder="0.00" style="flex:1;">
+          </div>
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Ödenen (₺)</label>
-          <input type="number" id="packagePaid" value="0" step="0.01">
+          <label>Ödenen</label>
+          <div style="display:flex; gap:6px;">
+            <select id="packagePaidCurrency" style="width:90px; padding:11px 8px; border:1.5px solid var(--border); border-radius:var(--r-md); font-size:14px; flex-shrink:0;">
+              <option value="TRY">₺ TRY</option>
+              <option value="USD">$ USD</option>
+              <option value="EUR">€ EUR</option>
+              <option value="GBP">£ GBP</option>
+            </select>
+            <input type="number" id="packagePaid" value="0" step="0.01" style="flex:1;">
+          </div>
         </div>
         <div class="form-group">
           <label>Başlangıç Tarihi</label>
@@ -471,8 +487,16 @@
       <input type="hidden" id="paymentClient">
       <div class="form-row">
         <div class="form-group">
-          <label>Tutar (₺) *</label>
-          <input type="number" id="paymentAmount" step="0.01" placeholder="0.00">
+          <label>Tutar *</label>
+          <div style="display:flex; gap:6px;">
+            <select id="paymentCurrency" style="width:90px; padding:11px 8px; border:1.5px solid var(--border); border-radius:var(--r-md); font-size:14px; flex-shrink:0;">
+              <option value="TRY">₺ TRY</option>
+              <option value="USD">$ USD</option>
+              <option value="EUR">€ EUR</option>
+              <option value="GBP">£ GBP</option>
+            </select>
+            <input type="number" id="paymentAmount" step="0.01" placeholder="0.00" style="flex:1;">
+          </div>
         </div>
         <div class="form-group">
           <label>Tarih *</label>

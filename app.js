@@ -994,6 +994,7 @@ function renderClients() {
                 <!-- Ana butonlar — her zaman görünür -->
                 <button class="btn btn-success btn-sm" onclick="openAddSessionModal('${client.id}')">＋ Seans</button>
                 <button class="btn btn-lavender btn-sm" onclick="openAddPackageModal('${client.id}')">📦 Paket</button>
+                <button class="btn btn-primary btn-sm" onclick="openEditClientModal('${client.id}')">👤 Detay</button>
                 <button class="btn btn-secondary btn-sm" onclick="openScheduleModal('${client.id}')">📅 Program</button>
                 <!-- Daha fazla menü -->
                 <button class="btn btn-secondary btn-sm" onclick="toggleClientMenu('${client.id}')"
@@ -2343,7 +2344,7 @@ function renderPriceList() {
                         <div style="font-size:12px; color:var(--stone); margin-top:2px;">${t.type || ''}</div>
                     </div>
                     <div style="text-align:right;">
-                        <div style="font-size:1.3rem; font-weight:700; color:var(--sage-dark); font-family:'Playfair Display',serif;">${t.price.toLocaleString('tr-TR')} ₺</div>
+                        <div style="font-size:1.3rem; font-weight:700; color:var(--sage-dark); font-family:'Playfair Display',serif;">${t.price.toLocaleString('tr-TR')} ${t.currency || '₺'}</div>
                     </div>
                 </div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
@@ -2393,8 +2394,16 @@ function openAddPriceModal(editIndex = null) {
                         <input type="number" id="pt_sessions" value="${t?.sessions||8}" min="1">
                     </div>
                     <div class="form-group">
-                        <label>Fiyat (₺) *</label>
-                        <input type="number" id="pt_price" value="${t?.price||''}" placeholder="0">
+                        <label>Fiyat *</label>
+                        <div style="display:flex; gap:6px;">
+                            <select id="pt_currency" style="width:80px; padding:7px 6px; border:1.5px solid var(--border); border-radius:var(--r-sm); font-size:13px;">
+                                <option value="TRY" ${t?.currency==='TRY'||!t?.currency?'selected':''}>₺</option>
+                                <option value="USD" ${t?.currency==='USD'?'selected':''}>$</option>
+                                <option value="EUR" ${t?.currency==='EUR'?'selected':''}>€</option>
+                                <option value="GBP" ${t?.currency==='GBP'?'selected':''}>£</option>
+                            </select>
+                            <input type="number" id="pt_price" value="${t?.price||''}" placeholder="0" style="flex:1;">
+                        </div>
                     </div>
                 </div>
                 <div class="form-row">
@@ -2430,10 +2439,11 @@ async function savePriceTemplate(editIndex) {
     const type     = document.getElementById('pt_type')?.value;
     const duration = parseInt(document.getElementById('pt_duration')?.value) || 60;
     const notes    = document.getElementById('pt_notes')?.value.trim();
+    const currency = document.getElementById('pt_currency')?.value || 'TRY';
 
     if (!name || !sessions || !price) { showNotification('Ad, seans ve fiyat zorunlu', 'error'); return; }
 
-    const template = { name, sessions, price, type, duration, notes, updatedAt: new Date().toISOString() };
+    const template = { name, sessions, price, currency, type, duration, notes, updatedAt: new Date().toISOString() };
 
     if (editIndex !== null) {
         priceTemplates[editIndex] = template;
@@ -3100,7 +3110,7 @@ function openEditClientModal(clientId) {
                     const pkg = packages.find(p => p.id === pay.packageId);
                     return `<tr>
                         <td>${new Date(pay.date).toLocaleDateString('tr-TR')}</td>
-                        <td><strong style="color:var(--sage-dark);">+${pay.amount.toFixed(0)} ₺</strong></td>
+                        <td><strong style="color:var(--sage-dark);">+${pay.amount.toFixed(2)} ${pay.currency ? pay.currency : '₺'}</strong></td>
                         <td>${pay.method||'—'}</td>
                         <td style="font-size:12px; color:var(--stone);">${pkg?pkg.name:'—'}</td>
                     </tr>`;
@@ -3255,6 +3265,8 @@ function applyPriceTemplate(i) {
     document.getElementById('packageName').value     = t.name;
     document.getElementById('packageSessions').value = t.sessions;
     document.getElementById('packagePrice').value    = t.price;
+    const curSel = document.getElementById('packageCurrency');
+    if (curSel && t.currency) curSel.value = t.currency;
     document.getElementById('priceListPickerModal')?.remove();
     showNotification(t.name + ' seçildi', 'success');
 }
