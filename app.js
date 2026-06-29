@@ -767,32 +767,45 @@ async function deletePackage(packageId) {
 // ========================================
 
 function openPaymentModal(packageId) {
-    const pkg = packages.find(p => p.id === packageId);
+    const pkg    = packages.find(p => p.id === packageId);
+    if (!pkg) return;
     const client = clients.find(c => c.id === pkg.clientId);
+    if (!client) return;
 
-    if (!pkg || !client) return;
+    const remaining = (pkg.price || 0) - (pkg.paidAmount || 0);
+    const sym = pkg.priceCurrency === 'USD' ? '$' : pkg.priceCurrency === 'EUR' ? '€' : pkg.priceCurrency === 'GBP' ? '£' : '₺';
 
-    const remaining = pkg.price - pkg.paidAmount;
-    
-    document.getElementById('paymentPackageInfo').innerHTML = `
-        <strong>${client.name}</strong><br>
-        <strong>${pkg.name}</strong><br>
-        <strong>Kalan Tutar:</strong> ${remaining.toFixed(2)} ₺
-    `;
+    document.getElementById('paymentPackageInfo').innerHTML =
+        '<strong>' + client.name + '</strong><br>' +
+        '<strong>' + pkg.name + '</strong><br>' +
+        '<span style="color:var(--danger);">Kalan: ' + sym + remaining.toFixed(2) + '</span>';
 
-    document.getElementById('paymentAmount').value = remaining;
+    document.getElementById('paymentAmount').value  = remaining > 0 ? remaining : '';
     document.getElementById('paymentPackage').value = packageId;
-    document.getElementById('paymentClient').value = pkg.clientId;
+    document.getElementById('paymentClient').value  = pkg.clientId;
+
+    // Para birimi eşitle
+    const payCurSel = document.getElementById('paymentCurrency');
+    if (payCurSel && pkg.priceCurrency) payCurSel.value = pkg.priceCurrency;
 
     const d = new Date();
     d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
     document.getElementById('paymentDate').value = d.toISOString().split('T')[0];
+
+    // editClientModal açıksa geçici olarak arkaya it
+    const editModal = document.getElementById('editClientModal');
+    if (editModal && editModal.classList.contains('active')) {
+        editModal.style.zIndex = '500';
+    }
 
     document.getElementById('paymentModal').classList.add('active');
 }
 
 function closePaymentModal() {
     document.getElementById('paymentModal').classList.remove('active');
+    // editClientModal'ı geri getir
+    const editModal = document.getElementById('editClientModal');
+    if (editModal) editModal.style.zIndex = '';
 }
 
 async function savePayment() {
@@ -847,8 +860,15 @@ async function savePayment() {
     // Makbuz/taksit seçeneği sun
     const savedPkg    = packages.find(p => p.id === packageId);
     const savedClient = clients.find(c => c.id === (savedPkg?.clientId));
+
+    // editClientModal açıksa yenile
+    const editModal = document.getElementById('editClientModal');
+    if (editModal && editModal.classList.contains('active') && savedClient) {
+        editModal.style.zIndex = '';
+        openEditClientModal(savedClient.id);
+    }
+
     if (typeof afterPaymentSaved === 'function' && savedClient && savedPkg) {
-        // afterPaymentSaved içine WA teşekkür seçeneği de ekle
         window._lastPaymentForWA = { payment, client: savedClient, pkg: savedPkg };
         afterPaymentSaved(payment, savedClient, savedPkg);
     } else {
@@ -949,7 +969,6 @@ function renderClients() {
                         <span class="${statusClass}">${statusLabel}</span>
                         ${totalDebt > 0 ? `<span class="badge" style="background:rgba(217,128,137,.12);color:var(--danger);border:1px solid rgba(217,128,137,.3);">
                             ${typeof formatCurrency === 'function' ? formatCurrency(totalDebt) : totalDebt.toFixed(0)+' ₺'} borç</span>` : ''}
-                        ${activePackage ? `<span class="badge badge-package" style="font-size:10px;">${activePackage.remainingSessions} seans</span>` : ''}
                     </div>
                     <div style="font-size:12px; color:var(--stone); display:flex; gap:12px; flex-wrap:wrap;">
                         <span>📱 ${client.phone}</span>
@@ -963,8 +982,12 @@ function renderClients() {
 
             <div class="client-actions" style="position:relative; margin-top:12px; padding-top:12px; border-top:1px solid var(--border-soft);">
                 <button class="btn btn-success btn-sm" onclick="quickCheckIn('${client.id}')"
-                    style="background:linear-gradient(135deg,#6db89d,#4da080); gap:5px;">
+                    style="background:linear-gradient(135deg,#6db89d,#4da080);">
                     ✓ Geldi
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="openAbsenceModal('${client.id}')"
+                    style="background:linear-gradient(135deg,#d98089,#c0606a);">
+                    ✕ Gelmedi
                 </button>
                 <button class="btn btn-secondary btn-sm" onclick="openAddSessionModal('${client.id}')">＋ Seans</button>
                 <button class="btn btn-ghost btn-sm" onclick="openEditClientModal('${client.id}')" style="color:var(--sage-dark); border:1.5px solid var(--sage-light);">📋 Detay</button>
@@ -996,13 +1019,7 @@ function renderClients() {
                         onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='none'">
                         <span style="font-size:15px;">📝</span> Not Ekle
                     </button>
-                    <button onclick="toggleClientMenu('${client.id}'); openAbsenceModal('${client.id}')"
-                        style="display:flex; align-items:center; gap:9px; width:100%; padding:9px 12px;
-                               background:none; border:none; border-radius:var(--r-sm); cursor:pointer;
-                               font-size:13px; color:var(--ink); text-align:left; transition:background .12s;"
-                        onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='none'">
-                        <span style="font-size:15px;">🚫</span> Gelmedi Kaydet
-                    </button>
+
                     <button onclick="toggleClientMenu('${client.id}'); openClientDetail('${client.id}')"
                         style="display:flex; align-items:center; gap:9px; width:100%; padding:9px 12px;
                                background:none; border:none; border-radius:var(--r-sm); cursor:pointer;

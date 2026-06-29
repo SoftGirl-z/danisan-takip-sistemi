@@ -248,53 +248,6 @@ function openSettings() {
 
                 <div class="divider"></div>
 
-                <!-- Özel Domain Bilgisi -->
-                <div style="background:linear-gradient(135deg,rgba(143,173,161,.08) 0%,rgba(184,169,212,.08) 100%);
-                     border:1.5px solid var(--sage-light); border-radius:var(--r-md); padding:16px 18px; margin-bottom:20px;">
-                    <div style="font-size:13px; font-weight:700; color:var(--sage-dark); margin-bottom:10px;">
-                        🌐 Özel Domain Bağlama
-                    </div>
-                    <div style="font-size:13px; color:var(--ink-soft); line-height:1.7;">
-                        Uygulamanız şu an <strong>Netlify</strong> üzerinde çalışıyorsa
-                        kendi domain adresinizi (<code style="background:var(--surface-3);padding:2px 6px;border-radius:4px;font-size:12px;">isletmem.com</code>) ücretsiz bağlayabilirsiniz.
-                    </div>
-                    <div style="margin-top:12px; display:flex; flex-direction:column; gap:6px;">
-                        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 10px;background:var(--surface);border-radius:var(--r-sm);border:1px solid var(--border-soft);">
-                            <span style="font-size:16px;flex-shrink:0;">🛒</span>
-                            <div>
-                                <div style="font-size:12px;font-weight:700;color:var(--ink);">1. Domain satın alın</div>
-                                <div style="font-size:11px;color:var(--stone);">GoDaddy, Namecheap veya Türk Telekom'dan ~200₺/yıl</div>
-                            </div>
-                        </div>
-                        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 10px;background:var(--surface);border-radius:var(--r-sm);border:1px solid var(--border-soft);">
-                            <span style="font-size:16px;flex-shrink:0;">⚙️</span>
-                            <div>
-                                <div style="font-size:12px;font-weight:700;color:var(--ink);">2. Netlify'da ekleyin</div>
-                                <div style="font-size:11px;color:var(--stone);">Site Settings → Domain Management → Add Custom Domain</div>
-                            </div>
-                        </div>
-                        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 10px;background:var(--surface);border-radius:var(--r-sm);border:1px solid var(--border-soft);">
-                            <span style="font-size:16px;flex-shrink:0;">🔗</span>
-                            <div>
-                                <div style="font-size:12px;font-weight:700;color:var(--ink);">3. DNS kaydı ekleyin</div>
-                                <div style="font-size:11px;color:var(--stone);">Domain sağlayıcınızda CNAME: www → siteniz.netlify.app</div>
-                            </div>
-                        </div>
-                        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 10px;background:var(--surface);border-radius:var(--r-sm);border:1px solid var(--border-soft);">
-                            <span style="font-size:16px;flex-shrink:0;">🔒</span>
-                            <div>
-                                <div style="font-size:12px;font-weight:700;color:var(--ink);">4. SSL otomatik aktif</div>
-                                <div style="font-size:11px;color:var(--stone);">Netlify ücretsiz HTTPS sertifikası sağlar (~dakikalar içinde)</div>
-                            </div>
-                        </div>
-                    </div>
-                    <a href="https://docs.netlify.com/domains-https/custom-domains/" target="_blank"
-                       style="display:inline-flex;align-items:center;gap:6px;margin-top:12px;
-                              font-size:12px;color:var(--sage-dark);font-weight:600;text-decoration:none;">
-                        📖 Netlify Domain Dokümantasyonu →
-                    </a>
-                </div>
-
                 <div class="form-group" style="margin-bottom:0;">
                     <label>Renk Teması</label>
                     <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:4px;">
