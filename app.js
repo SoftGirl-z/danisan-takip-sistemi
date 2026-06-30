@@ -1438,20 +1438,19 @@ function renderDebtList(debtsArg) {
     // Arama filtresi
     const searchVal = (document.getElementById('debtSearch')?.value || '').toLowerCase().trim();
 
-    // debtsArg verilmediyse hesapla
-    let debts = debtsArg;
-    if (!debts) {
-        debts = packages
-            .map(p => ({ pkg: p, client: clients.find(c => c.id === p.clientId), debt: (p.price||0)-(p.paidAmount||0) }))
-            .filter(x => x.debt > 0 && x.client);
-    }
+    // HER ZAMAN paketlerden kendi hesapla — tutarlı veri yapısı için
+    // (debtsArg parametresi geriye dönük uyumluluk için yok sayılıyor, kendi hesaplıyoruz)
+    let debts = packages
+        .map(p => ({
+            pkg:   p,
+            client: clients.find(c => c.id === p.clientId),
+            debt:  (p.price || 0) - (p.paidAmount || 0)
+        }))
+        .filter(x => x.debt > 0 && x.client);
 
     // Arama uygula
     if (searchVal) {
-        debts = debts.filter(x => {
-            const name = (x.client?.name || x.name || '').toLowerCase();
-            return name.includes(searchVal);
-        });
+        debts = debts.filter(x => (x.client.name || '').toLowerCase().includes(searchVal));
     }
 
     // Badge
@@ -1463,38 +1462,43 @@ function renderDebtList(debtsArg) {
             (searchVal ? 'Sonuç bulunamadı' : '✓ Bekleyen ödeme yok') + '</div>';
         return;
     }
-    el.innerHTML = `<table class="finance-table">
-        <thead><tr><th>Danışan</th><th>Paket</th><th>Toplam</th><th>Ödenen</th><th>Kalan</th><th></th></tr></thead>
-        <tbody>
-        ${debts.map((p, i) => {
-            const c    = clients.find(c => c.id === p.clientId);
-            const debt = (p.price||0) - (p.paidAmount||0);
-            const pct  = Math.round((p.paidAmount||0) / (p.price||1) * 100);
-            window._debtMap = window._debtMap || {};
-            window._debtMap['fl_' + i] = { client: c, pkg: p, debt };
-            return `<tr>
-                <td><strong>${c ? c.name : '—'}</strong></td>
-                <td style="color:var(--stone); font-size:13px;">${p.name}</td>
-                <td>${(p.price||0).toFixed(0)} ₺</td>
-                <td>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <div style="width:60px; height:5px; background:var(--border); border-radius:99px; overflow:hidden;">
-                            <div style="height:100%; width:${pct}%; background:var(--sage); border-radius:99px;"></div>
-                        </div>
-                        <span style="font-size:12px; color:var(--stone);">${(p.paidAmount||0).toFixed(0)} ₺</span>
-                    </div>
-                </td>
-                <td><strong style="color:var(--danger);">${debt.toFixed(0)} ₺</strong></td>
-                <td>
-                    <div style="display:flex; gap:6px;">
-                        <button class="btn btn-success btn-xs" onclick="openPaymentModal('${p.id}')">💳 Al</button>
-                        <button class="btn btn-ghost btn-xs" onclick="window._sendDebtReminder && window._sendDebtReminder('fl_${i}')">💬</button>
-                    </div>
-                </td>
-            </tr>`;
-        }).join('')}
-        </tbody>
-    </table>`;
+
+    window._debtMap = {};
+    const rows = debts.map((x, i) => {
+        const c    = x.client;
+        const p    = x.pkg;
+        const debt = x.debt;
+        const pct  = Math.round((p.paidAmount || 0) / (p.price || 1) * 100);
+        const sym  = p.priceCurrency === 'USD' ? '$' : p.priceCurrency === 'EUR' ? '€' : p.priceCurrency === 'GBP' ? '£' : '₺';
+
+        window._debtMap[i] = { client: c, pkg: p, debt };
+
+        return '<tr>' +
+            '<td><strong>' + c.name + '</strong></td>' +
+            '<td style="color:var(--stone); font-size:13px;">' + (p.name || '—') + '</td>' +
+            '<td>' + sym + (p.price || 0).toFixed(0) + '</td>' +
+            '<td>' +
+                '<div style="display:flex; align-items:center; gap:6px;">' +
+                    '<div style="width:60px; height:5px; background:var(--border); border-radius:99px; overflow:hidden;">' +
+                        '<div style="height:100%; width:' + pct + '%; background:var(--sage); border-radius:99px;"></div>' +
+                    '</div>' +
+                    '<span style="font-size:12px; color:var(--stone);">' + sym + (p.paidAmount || 0).toFixed(0) + '</span>' +
+                '</div>' +
+            '</td>' +
+            '<td><strong style="color:var(--danger);">' + sym + debt.toFixed(0) + '</strong></td>' +
+            '<td>' +
+                '<div style="display:flex; gap:6px;">' +
+                    '<button class="btn btn-success btn-xs" onclick="openPaymentModal(\'' + p.id + '\')">💳 Al</button>' +
+                    '<button class="btn btn-ghost btn-xs" onclick="window._sendDebtReminder && window._sendDebtReminder(' + i + ')">💬</button>' +
+                '</div>' +
+            '</td>' +
+        '</tr>';
+    }).join('');
+
+    el.innerHTML = '<table class="finance-table">' +
+        '<thead><tr><th>Danışan</th><th>Paket</th><th>Toplam</th><th>Ödenen</th><th>Kalan</th><th></th></tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+    '</table>';
 }
 
 function renderPaymentHistory() {
