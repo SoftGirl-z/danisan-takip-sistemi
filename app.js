@@ -101,6 +101,10 @@ window.addEventListener('load', async function() {
         loadSavedCurrency();
         fetchExchangeRates();
 
+        // Eğitmenler
+        await loadInstructors();
+        updateInstructorSelects();
+
         // Doğum günü kontrolü
         if (typeof showBirthdayAlert === 'function') {
             showBirthdayAlert(clients);
@@ -2336,6 +2340,7 @@ window.switchTab = function(tab) {
         packages:  { page: 'packagesPage',  render: renderPackages },
         finance:   { page: 'financePage',   render: renderFinance },
         pricelist: { page: 'pricelistPage', render: renderPriceList },
+        reports:   { page: 'reportsPage',   render: renderInstructorReports },
     };
 
     const entry = pageMap[tab];
@@ -2488,14 +2493,23 @@ function openAddPriceModal(editIndex = null) {
                     <div class="form-group">
                         <label>Seans Türü</label>
                         <select id="pt_type">
-                            ${['Fizyoterapi','Reformer Pilates','Yoga','Mat Pilates'].map(opt =>
-                                `<option ${t?.type===opt?'selected':''}>${opt}</option>`).join('')}
+                            <option value="">— Seçiniz —</option>
+                            ${sessionTypes.map(opt =>
+                                `<option value="${opt}" ${t?.type===opt?'selected':''}>${opt}</option>`).join('')}
                         </select>
                     </div>
                     <div class="form-group">
                         <label>Süre (dk)</label>
                         <input type="number" id="pt_duration" value="${t?.duration||60}" min="15" step="15">
                     </div>
+                </div>
+                <div class="form-group">
+                    <label>👩‍🏫 Eğitmen</label>
+                    <select id="pt_instructor">
+                        <option value="">— Eğitmen Yok —</option>
+                        ${instructors.map(ins =>
+                            `<option value="${ins.id}" ${t?.instructorId===ins.id?'selected':''}>${ins.name} (%${ins.commission})</option>`).join('')}
+                    </select>
                 </div>
                 <div class="form-group">
                     <label>Notlar</label>
@@ -2517,11 +2531,12 @@ async function savePriceTemplate(editIndex) {
     const type     = document.getElementById('pt_type')?.value;
     const duration = parseInt(document.getElementById('pt_duration')?.value) || 60;
     const notes    = document.getElementById('pt_notes')?.value.trim();
-    const currency = document.getElementById('pt_currency')?.value || 'TRY';
+    const currency     = document.getElementById('pt_currency')?.value || 'TRY';
+    const instructorId = document.getElementById('pt_instructor')?.value || null;
 
     if (!name || !sessions || !price) { showNotification('Ad, seans ve fiyat zorunlu', 'error'); return; }
 
-    const template = { name, sessions, price, currency, type, duration, notes, updatedAt: new Date().toISOString() };
+    const template = { name, sessions, price, currency, type, duration, notes, instructorId, updatedAt: new Date().toISOString() };
 
     if (editIndex !== null) {
         priceTemplates[editIndex] = template;
@@ -3385,6 +3400,8 @@ function applyPriceTemplate(i) {
     document.getElementById('packagePrice').value    = t.price;
     const curSel = document.getElementById('packageCurrency');
     if (curSel && t.currency) curSel.value = t.currency;
+    const insSel = document.getElementById('packageInstructor');
+    if (insSel && t.instructorId) insSel.value = t.instructorId;
     document.getElementById('priceListPickerModal')?.remove();
     showNotification(t.name + ' seçildi', 'success');
 }
@@ -3813,3 +3830,314 @@ function setDateRangePreset(preset) {
     renderPaymentHistory();
 }
 window.setDateRangePreset = setDateRangePreset;
+
+// ============================================================
+// EĞİTMEN / HOCA YÖNETİM SİSTEMİ
+// ============================================================
+let instructors = [];
+
+async function loadInstructors() {
+    if (currentUser) {
+        try {
+            const profile = await getProfile(currentUser.uid);
+            if (profile?.instructors?.length) {
+                instructors = profile.instructors;
+                try { localStorage.setItem('instructors_' + currentUser.uid, JSON.stringify(instructors)); } catch(e) {}
+                return;
+            }
+        } catch(e) { console.warn('Eğitmen Firestore hatası:', e); }
+    }
+    try {
+        const uid = currentUser?.uid || 'guest';
+        const stored = localStorage.getItem('instructors_' + uid);
+        if (stored) instructors = JSON.parse(stored);
+    } catch(e) { instructors = []; }
+}
+
+async function saveInstructors() {
+    const uid = currentUser?.uid || 'guest';
+    try { localStorage.setItem('instructors_' + uid, JSON.stringify(instructors)); } catch(e) {}
+    if (currentUser) {
+        try { await saveProfile(currentUser.uid, { instructors }); }
+        catch(e) { console.error('Eğitmen kayıt hatası:', e); }
+    }
+}
+
+function openInstructorsModal() {
+    const existing = document.getElementById('instructorsModal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'instructorsModal';
+    modal.className = 'modal active';
+
+    const inner = document.createElement('div');
+    inner.className = 'modal-content';
+    inner.style.maxWidth = '520px';
+
+    const header = document.createElement('div');
+    header.className = 'modal-header';
+    header.innerHTML = '<h3>👩‍🏫 Eğitmenler / Hocalar</h3>';
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'close-btn';
+    closeBtn.innerHTML = '&#x2715;';
+    closeBtn.onclick = () => modal.remove();
+    header.appendChild(closeBtn);
+
+    const body = document.createElement('div');
+    body.className = 'modal-body';
+    body.id = 'instructorsBody';
+
+    const footer = document.createElement('div');
+    footer.className = 'modal-footer';
+    const closeBtn2 = document.createElement('button');
+    closeBtn2.className = 'btn btn-secondary';
+    closeBtn2.textContent = 'Kapat';
+    closeBtn2.onclick = () => modal.remove();
+    footer.appendChild(closeBtn2);
+
+    inner.appendChild(header);
+    inner.appendChild(body);
+    inner.appendChild(footer);
+    modal.appendChild(inner);
+    modal.onclick = e => { if (e.target === modal) modal.remove(); };
+    document.body.appendChild(modal);
+
+    renderInstructorsList();
+}
+
+function renderInstructorsList() {
+    const body = document.getElementById('instructorsBody');
+    if (!body) return;
+
+    const listHTML = instructors.length ? instructors.map((ins, i) => `
+        <div style="display:flex; align-items:center; gap:10px; padding:12px 14px;
+             background:var(--surface-2); border-radius:var(--r-md); border:1px solid var(--border-soft); margin-bottom:8px;">
+            <div style="width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,var(--lav-light),var(--sage-light));
+                 display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">👤</div>
+            <div style="flex:1; min-width:0;">
+                <div style="font-weight:600; font-size:14px;">${ins.name}</div>
+                <div style="font-size:12px; color:var(--stone);">${ins.specialty || 'Genel'} · %${ins.commission} komisyon</div>
+            </div>
+            <button class="btn btn-ghost btn-xs" onclick="editInstructor(${i})">✏️</button>
+            <button class="btn btn-ghost btn-xs" onclick="removeInstructor(${i})" style="color:var(--danger);">🗑</button>
+        </div>`).join('') : '<div style="text-align:center; color:var(--stone); padding:20px; font-size:13px;">Henüz eğitmen eklenmedi</div>';
+
+    body.innerHTML = `
+        ${listHTML}
+        <div class="divider"></div>
+        <div class="form-group">
+            <label>Eğitmen Adı *</label>
+            <input type="text" id="newInsName" placeholder="Örn: Ayşe Hoca">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Uzmanlık</label>
+                <input type="text" id="newInsSpecialty" placeholder="Örn: Pilates, Yoga">
+            </div>
+            <div class="form-group">
+                <label>Komisyon (%) *</label>
+                <input type="number" id="newInsCommission" placeholder="40" min="0" max="100">
+            </div>
+        </div>
+        <button class="btn btn-primary btn-sm w-full" onclick="addInstructor()">＋ Eğitmen Ekle</button>
+    `;
+}
+
+function addInstructor() {
+    const name       = document.getElementById('newInsName')?.value.trim();
+    const specialty  = document.getElementById('newInsSpecialty')?.value.trim();
+    const commission = parseFloat(document.getElementById('newInsCommission')?.value);
+
+    if (!name || isNaN(commission)) {
+        showNotification('Ad ve komisyon yüzdesi zorunlu', 'error');
+        return;
+    }
+
+    instructors.push({
+        id: 'ins-' + Date.now(),
+        name, specialty, commission
+    });
+    saveInstructors();
+    renderInstructorsList();
+    updateInstructorSelects();
+    showNotification(name + ' eklendi ✓', 'success');
+}
+
+function editInstructor(i) {
+    const ins = instructors[i];
+    if (!ins) return;
+    const newCommission = prompt('Yeni komisyon yüzdesi:', ins.commission);
+    if (newCommission === null) return;
+    const val = parseFloat(newCommission);
+    if (isNaN(val)) { showNotification('Geçersiz değer', 'error'); return; }
+    ins.commission = val;
+    saveInstructors();
+    renderInstructorsList();
+    showNotification('Güncellendi ✓', 'success');
+}
+
+async function removeInstructor(i) {
+    if (!confirm('Bu eğitmeni silmek istiyor musunuz?')) return;
+    instructors.splice(i, 1);
+    await saveInstructors();
+    renderInstructorsList();
+    updateInstructorSelects();
+}
+
+function updateInstructorSelects() {
+    // Fiyat listesi modalı, seans modalı, paket modalı içindeki select'leri güncelle
+    const selectIds = ['pt_instructor', 'sessionInstructor', 'packageInstructor'];
+    selectIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const current = el.value;
+        el.innerHTML = '<option value="">— Eğitmen Yok —</option>' +
+            instructors.map(ins => `<option value="${ins.id}" ${ins.id === current ? 'selected' : ''}>${ins.name} (%${ins.commission})</option>`).join('');
+    });
+}
+
+window.openInstructorsModal  = openInstructorsModal;
+window.renderInstructorsList = renderInstructorsList;
+window.addInstructor         = addInstructor;
+window.editInstructor        = editInstructor;
+window.removeInstructor      = removeInstructor;
+window.loadInstructors       = loadInstructors;
+window.saveInstructors       = saveInstructors;
+window.updateInstructorSelects = updateInstructorSelects;
+
+// ============================================================
+// EĞİTMEN RAPORLAMA SİSTEMİ
+// ============================================================
+function renderInstructorReports() {
+    const container = document.getElementById('reportsContainer');
+    if (!container) return;
+
+    // Filtre dropdown'unu güncelle
+    const filterSel = document.getElementById('reportInstructorFilter');
+    if (filterSel && filterSel.options.length <= 1) {
+        filterSel.innerHTML = '<option value="all">Tüm Eğitmenler</option>' +
+            instructors.map(ins => `<option value="${ins.id}">${ins.name}</option>`).join('');
+    }
+    const selectedInsId = filterSel?.value || 'all';
+
+    if (!instructors.length) {
+        container.innerHTML = `
+            <div class="empty-state" style="padding:60px 20px;">
+                <div class="empty-state-icon">👩‍🏫</div>
+                <p>Henüz eğitmen eklenmemiş</p>
+                <button class="btn btn-primary btn-sm" style="margin-top:12px;"
+                    onclick="document.getElementById('settingsModal') ? null : openSettings(); setTimeout(()=>openInstructorsModal(), 100)">
+                    ＋ Eğitmen Ekle
+                </button>
+            </div>`;
+        return;
+    }
+
+    // Her eğitmen için: paketleri, ödemeleri, danışanları hesapla
+    const insToShow = selectedInsId === 'all' ? instructors : instructors.filter(i => i.id === selectedInsId);
+
+    const reportCards = insToShow.map(ins => {
+        // Bu eğitmene ait paketler
+        const insPackages = packages.filter(p => p.instructorId === ins.id);
+        const insClientIds = [...new Set(insPackages.map(p => p.clientId))];
+        const insClients = insClientIds.map(id => clients.find(c => c.id === id)).filter(Boolean);
+
+        // Bu paketlere yapılan ödemeler
+        const insPaymentsTotal = insPackages.reduce((sum, pkg) => {
+            const pkgPayments = payments.filter(p => p.packageId === pkg.id);
+            return sum + pkgPayments.reduce((s,p) => s + p.amount, 0);
+        }, 0);
+
+        // Toplam paket değeri (kazanılacak)
+        const totalPackageValue = insPackages.reduce((s,p) => s + (p.price||0), 0);
+
+        // Komisyon hesabı
+        const commission       = ins.commission || 0;
+        const instructorShare  = insPaymentsTotal * (commission / 100);
+        const businessShare    = insPaymentsTotal - instructorShare;
+
+        // Aktif/tamamlanan seans sayısı
+        const insSessions = sessions.filter(s => insClientIds.includes(s.clientId) && s.status !== 'absent');
+
+        window._reportInsMap = window._reportInsMap || {};
+        window._reportInsMap[ins.id] = { ins, insClients, insPackages };
+
+        return `
+        <div class="card" style="margin-bottom:20px;">
+            <div class="card-header" onclick="toggleSection('insSection_${ins.id}', 'insChevron_${ins.id}')" style="cursor:pointer; user-select:none;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span id="insChevron_${ins.id}" style="font-size:12px; color:var(--stone); transition:transform .2s;">▼</span>
+                    <div style="width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg,var(--lav-light),var(--sage-light));
+                         display:flex; align-items:center; justify-content:center; font-size:18px;">👤</div>
+                    <div>
+                        <h2 style="margin:0;">${ins.name}</h2>
+                        <div style="font-size:12px; color:var(--stone);">${ins.specialty || 'Genel'} · %${commission} komisyon</div>
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-family:'Playfair Display',serif; font-size:1.4rem; font-weight:600; color:var(--sage-dark);">
+                        ${typeof formatCurrency === 'function' ? formatCurrency(instructorShare) : instructorShare.toFixed(0) + ' ₺'}
+                    </div>
+                    <div style="font-size:11px; color:var(--stone);">eğitmen payı</div>
+                </div>
+            </div>
+
+            <div id="insSection_${ins.id}">
+                <!-- KPI Grid -->
+                <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border-soft); margin-bottom:0;">
+                    <div style="background:var(--surface); padding:16px; text-align:center;">
+                        <div style="font-size:11px; color:var(--stone); text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px;">Danışan</div>
+                        <div style="font-size:1.4rem; font-weight:700; color:var(--ink); font-family:'Playfair Display',serif;">${insClients.length}</div>
+                    </div>
+                    <div style="background:var(--surface); padding:16px; text-align:center;">
+                        <div style="font-size:11px; color:var(--stone); text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px;">Toplam Ciro</div>
+                        <div style="font-size:1.4rem; font-weight:700; color:var(--ink); font-family:'Playfair Display',serif;">
+                            ${typeof formatCurrency === 'function' ? formatCurrency(insPaymentsTotal) : insPaymentsTotal.toFixed(0) + ' ₺'}
+                        </div>
+                    </div>
+                    <div style="background:var(--surface); padding:16px; text-align:center;">
+                        <div style="font-size:11px; color:var(--stone); text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px;">Eğitmen Payı</div>
+                        <div style="font-size:1.4rem; font-weight:700; color:var(--sage-dark); font-family:'Playfair Display',serif;">
+                            ${typeof formatCurrency === 'function' ? formatCurrency(instructorShare) : instructorShare.toFixed(0) + ' ₺'}
+                        </div>
+                    </div>
+                    <div style="background:var(--surface); padding:16px; text-align:center;">
+                        <div style="font-size:11px; color:var(--stone); text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px;">İşletme Payı</div>
+                        <div style="font-size:1.4rem; font-weight:700; color:var(--lav-dark); font-family:'Playfair Display',serif;">
+                            ${typeof formatCurrency === 'function' ? formatCurrency(businessShare) : businessShare.toFixed(0) + ' ₺'}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Danışan listesi -->
+                <div class="card-body" style="padding:0;">
+                    ${insClients.length ? `
+                    <table class="finance-table">
+                        <thead><tr><th>Danışan</th><th>Paket</th><th>Toplam Tutar</th><th>Ödenen</th><th>Eğitmen Payı</th></tr></thead>
+                        <tbody>
+                        ${insPackages.map(pkg => {
+                            const c = clients.find(c => c.id === pkg.clientId);
+                            if (!c) return '';
+                            const pkgPaid = payments.filter(p => p.packageId === pkg.id).reduce((s,p) => s+p.amount, 0);
+                            const pkgInsShare = pkgPaid * (commission / 100);
+                            const sym = pkg.priceCurrency === 'USD' ? '$' : pkg.priceCurrency === 'EUR' ? '€' : pkg.priceCurrency === 'GBP' ? '£' : '₺';
+                            return `<tr>
+                                <td><strong>${c.name}</strong></td>
+                                <td style="color:var(--stone); font-size:13px;">${pkg.name}</td>
+                                <td>${sym}${(pkg.price||0).toFixed(0)}</td>
+                                <td>${sym}${pkgPaid.toFixed(0)}</td>
+                                <td><strong style="color:var(--sage-dark);">${sym}${pkgInsShare.toFixed(0)}</strong></td>
+                            </tr>`;
+                        }).join('')}
+                        </tbody>
+                    </table>` : '<div class="empty-state" style="padding:24px;"><p>Bu eğitmene atanmış danışan yok</p></div>'}
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    container.innerHTML = reportCards;
+}
+
+window.renderInstructorReports = renderInstructorReports;

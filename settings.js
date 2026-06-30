@@ -246,6 +246,18 @@ function openSettings() {
                     </button>
                 </div>
 
+                <!-- Eğitmenler / Hocalar -->
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 16px;
+                     background:var(--surface-2); border-radius:var(--r-md); border:1px solid var(--border-soft); margin-bottom:16px;">
+                    <div>
+                        <div style="font-size:13px; font-weight:600; color:var(--ink);">👩‍🏫 Eğitmenler / Hocalar</div>
+                        <div style="font-size:12px; color:var(--stone); margin-top:2px;">Komisyon oranlarını ve personeli yönetin</div>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('settingsModal').remove(); openInstructorsModal()">
+                        Düzenle →
+                    </button>
+                </div>
+
                 <div class="divider"></div>
 
                 <div class="form-group" style="margin-bottom:0;">

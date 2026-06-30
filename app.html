@@ -68,6 +68,7 @@
         <button class="tab" onclick="switchTab('packages')">📦 Paketler</button>
         <button class="tab" onclick="switchTab('finance')">💰 Finans</button>
         <button class="tab" onclick="switchTab('pricelist')">🏷️ Fiyat Listesi</button>
+        <button class="tab" onclick="switchTab('reports')">📊 Raporlama</button>
       </div>
     </div>
 
@@ -224,6 +225,17 @@
       <button class="btn btn-primary btn-sm" onclick="openAddPriceModal()">＋ Yeni Fiyat Ekle</button>
     </div>
     <div id="priceListContainer"></div>
+  </div>
+
+  <!-- ══════════════════ REPORTS PAGE ══════════════════ -->
+  <div id="reportsPage" class="page">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; flex-wrap:wrap; gap:10px;">
+      <h2>📊 Eğitmen Raporlama</h2>
+      <select id="reportInstructorFilter" class="filter-select" onchange="renderInstructorReports()" style="min-width:180px;">
+        <option value="all">Tüm Eğitmenler</option>
+      </select>
+    </div>
+    <div id="reportsContainer"></div>
   </div>
 
   <!-- ══════════════════ FINANCE PAGE ══════════════════ -->
@@ -567,9 +579,17 @@
             <input type="number" id="packagePaid" value="0" step="0.01" style="flex:1;">
           </div>
         </div>
-        <div class="form-group">
-          <label>Başlangıç Tarihi</label>
-          <input type="date" id="packageStartDate">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Başlangıç Tarihi</label>
+            <input type="date" id="packageStartDate">
+          </div>
+          <div class="form-group">
+            <label>👩‍🏫 Eğitmen</label>
+            <select id="packageInstructor">
+              <option value="">— Eğitmen Yok —</option>
+            </select>
+          </div>
         </div>
       </div>
     </div>
