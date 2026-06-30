@@ -231,9 +231,14 @@
   <div id="reportsPage" class="page">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; flex-wrap:wrap; gap:10px;">
       <h2>📊 Eğitmen Raporlama</h2>
-      <select id="reportInstructorFilter" class="filter-select" onchange="renderInstructorReports()" style="min-width:180px;">
-        <option value="all">Tüm Eğitmenler</option>
-      </select>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <select id="reportInstructorFilter" class="filter-select" onchange="renderInstructorReports()" style="min-width:180px;">
+          <option value="all">Tüm Eğitmenler</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="generateInstructorReportPDF()">
+          🖨️ PDF Rapor İndir
+        </button>
+      </div>
     </div>
     <div id="reportsContainer"></div>
   </div>

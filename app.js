@@ -1259,6 +1259,11 @@ function renderPackages() {
                             <span class="badge ${pkg.status === 'active' ? 'badge-active' : 'badge-frozen'}" style="margin-left:8px;">
                                 ${pkg.status === 'active' ? '✓ Aktif' : 'Tamamlandı'}
                             </span>
+                            ${pkg.instructorId ? (() => {
+                                const ins = instructors.find(i => i.id === pkg.instructorId);
+                                return ins ? `<span style="margin-left:8px; padding:2px 9px; background:rgba(184,169,212,.15); color:var(--lav-dark);
+                                    border-radius:99px; font-size:11px; font-weight:600;">👩‍🏫 ${ins.name}</span>` : '';
+                            })() : ''}
                         </div>
                         <div style="text-align:right; font-size:13px; color:var(--stone);">
                             ${pkg.startDate ? new Date(pkg.startDate).toLocaleDateString('tr-TR') : ''}
@@ -2439,6 +2444,15 @@ function renderPriceList() {
                     </span>
                     ${t.duration ? `<span style="padding:3px 10px; background:var(--surface-2); color:var(--stone); border-radius:99px; font-size:12px;">${t.duration} dk</span>` : ''}
                 </div>
+                ${t.instructorId ? (() => {
+                    const ins = instructors.find(i => i.id === t.instructorId);
+                    return ins ? `<div style="display:flex; align-items:center; gap:6px; margin-bottom:14px; padding:6px 10px;
+                         background:rgba(184,169,212,.1); border-radius:var(--r-sm); border-left:3px solid var(--lav-light);">
+                        <span style="font-size:14px;">👩‍🏫</span>
+                        <span style="font-size:12px; font-weight:600; color:var(--lav-dark);">${ins.name}</span>
+                        <span style="font-size:11px; color:var(--stone);">· %${ins.commission} komisyon</span>
+                    </div>` : '';
+                })() : ''}
                 ${t.notes ? `<div style="font-size:12px; color:var(--stone); margin-bottom:12px;">${t.notes}</div>` : ''}
                 <div style="display:flex; gap:8px;">
                     <button class="btn btn-primary btn-sm" style="flex:1;"
@@ -3145,6 +3159,11 @@ function openEditClientModal(clientId) {
                             <span class="badge ${p.status==='active'?'badge-active':'badge-frozen'}" style="margin-left:8px;">
                                 ${p.status==='active'?'Aktif':'Tamamlandı'}
                             </span>
+                            ${p.instructorId ? (() => {
+                                const ins = instructors.find(i => i.id === p.instructorId);
+                                return ins ? `<span style="margin-left:8px; padding:2px 9px; background:rgba(184,169,212,.15); color:var(--lav-dark);
+                                    border-radius:99px; font-size:11px; font-weight:600;">👩‍🏫 ${ins.name}</span>` : '';
+                            })() : ''}
                         </div>
                         <div style="font-size:12px; color:var(--stone);">
                             ${p.startDate ? new Date(p.startDate).toLocaleDateString('tr-TR') : ''}
@@ -4075,11 +4094,14 @@ function renderInstructorReports() {
                         <div style="font-size:12px; color:var(--stone);">${ins.specialty || 'Genel'} · %${commission} komisyon</div>
                     </div>
                 </div>
-                <div style="text-align:right;">
-                    <div style="font-family:'Playfair Display',serif; font-size:1.4rem; font-weight:600; color:var(--sage-dark);">
-                        ${typeof formatCurrency === 'function' ? formatCurrency(instructorShare) : instructorShare.toFixed(0) + ' ₺'}
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="text-align:right;">
+                        <div style="font-family:'Playfair Display',serif; font-size:1.4rem; font-weight:600; color:var(--sage-dark);">
+                            ${typeof formatCurrency === 'function' ? formatCurrency(instructorShare) : instructorShare.toFixed(0) + ' ₺'}
+                        </div>
+                        <div style="font-size:11px; color:var(--stone);">eğitmen payı</div>
                     </div>
-                    <div style="font-size:11px; color:var(--stone);">eğitmen payı</div>
+                    <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation(); generateInstructorReportPDF('${ins.id}')" title="Bu eğitmenin raporu">🖨️</button>
                 </div>
             </div>
 
@@ -4141,3 +4163,182 @@ function renderInstructorReports() {
 }
 
 window.renderInstructorReports = renderInstructorReports;
+
+// ============================================================
+// EĞİTMEN RAPORU - PDF OLUŞTUR
+// ============================================================
+function generateInstructorReportPDF(scope) {
+    // scope: 'all' veya bir instructor id
+    scope = scope || document.getElementById('reportInstructorFilter')?.value || 'all';
+
+    const profile    = window._currentProfile || {};
+    const bizName    = profile.businessName || 'İşletme';
+    const bizTagline = profile.tagline || '';
+    const today      = new Date().toLocaleDateString('tr-TR', { day:'numeric', month:'long', year:'numeric' });
+
+    const insToShow = scope === 'all' ? instructors : instructors.filter(i => i.id === scope);
+
+    if (!insToShow.length) {
+        showNotification('Eğitmen bulunamadı', 'warning');
+        return;
+    }
+
+    // Her eğitmen için detaylı veri hesapla
+    const reportData = insToShow.map(ins => {
+        const insPackages  = packages.filter(p => p.instructorId === ins.id);
+        const insClientIds = [...new Set(insPackages.map(p => p.clientId))];
+        const insClients   = insClientIds.map(id => clients.find(c => c.id === id)).filter(Boolean);
+
+        const lineItems = insPackages.map(pkg => {
+            const c = clients.find(c => c.id === pkg.clientId);
+            if (!c) return null;
+            const pkgPayments = payments.filter(p => p.packageId === pkg.id);
+            const pkgPaid     = pkgPayments.reduce((s,p) => s+p.amount, 0);
+            const pkgInsShare = pkgPaid * ((ins.commission||0) / 100);
+            const pkgBizShare = pkgPaid - pkgInsShare;
+            return {
+                clientName: c.name,
+                packageName: pkg.name,
+                totalPrice: pkg.price || 0,
+                currency: pkg.priceCurrency || 'TRY',
+                paid: pkgPaid,
+                insShare: pkgInsShare,
+                bizShare: pkgBizShare,
+                startDate: pkg.startDate,
+                status: pkg.status
+            };
+        }).filter(Boolean);
+
+        const totalPaid     = lineItems.reduce((s,x) => s+x.paid, 0);
+        const totalInsShare = lineItems.reduce((s,x) => s+x.insShare, 0);
+        const totalBizShare = lineItems.reduce((s,x) => s+x.bizShare, 0);
+        const totalPkgValue = lineItems.reduce((s,x) => s+x.totalPrice, 0);
+
+        return { ins, lineItems, insClients, totalPaid, totalInsShare, totalBizShare, totalPkgValue };
+    });
+
+    // Genel toplam
+    const grandTotalPaid     = reportData.reduce((s,r) => s+r.totalPaid, 0);
+    const grandTotalInsShare = reportData.reduce((s,r) => s+r.totalInsShare, 0);
+    const grandTotalBizShare = reportData.reduce((s,r) => s+r.totalBizShare, 0);
+
+    const symFor = (cur) => cur === 'USD' ? '$' : cur === 'EUR' ? '€' : cur === 'GBP' ? '£' : '₺';
+
+    // HTML oluştur
+    const sectionsHTML = reportData.map(r => `
+        <div style="margin-bottom:36px; page-break-inside:avoid;">
+            <div style="display:flex; justify-content:space-between; align-items:center;
+                 padding:16px 20px; background:linear-gradient(135deg,#f0ede6,#e8e2db); border-radius:10px; margin-bottom:14px;">
+                <div>
+                    <div style="font-family:'Playfair Display',serif; font-size:1.3rem; font-weight:600; color:#2d3340;">${r.ins.name}</div>
+                    <div style="font-size:12px; color:#6b7a86; margin-top:2px;">${r.ins.specialty || 'Genel'} · %${r.ins.commission} komisyon · ${r.insClients.length} danışan</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:11px; color:#6b7a86; text-transform:uppercase; letter-spacing:.05em;">Eğitmen Payı</div>
+                    <div style="font-family:'Playfair Display',serif; font-size:1.5rem; font-weight:700; color:#5f8076;">
+                        ${r.totalInsShare.toFixed(2)} ₺
+                    </div>
+                </div>
+            </div>
+
+            ${r.lineItems.length ? `
+            <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+                <thead>
+                    <tr style="background:#2d3340; color:white;">
+                        <th style="padding:9px 12px; text-align:left; font-weight:600;">Danışan</th>
+                        <th style="padding:9px 12px; text-align:left; font-weight:600;">Paket</th>
+                        <th style="padding:9px 12px; text-align:right; font-weight:600;">Toplam</th>
+                        <th style="padding:9px 12px; text-align:right; font-weight:600;">Tahsil Edilen</th>
+                        <th style="padding:9px 12px; text-align:right; font-weight:600;">Eğitmen Payı</th>
+                        <th style="padding:9px 12px; text-align:right; font-weight:600;">İşletme Payı</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${r.lineItems.map((x, i) => `
+                    <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f7f5f1'}; border-bottom:1px solid #e8e2db;">
+                        <td style="padding:8px 12px; font-weight:600;">${x.clientName}</td>
+                        <td style="padding:8px 12px; color:#6b7a86;">${x.packageName}</td>
+                        <td style="padding:8px 12px; text-align:right;">${symFor(x.currency)}${x.totalPrice.toFixed(0)}</td>
+                        <td style="padding:8px 12px; text-align:right;">${symFor(x.currency)}${x.paid.toFixed(0)}</td>
+                        <td style="padding:8px 12px; text-align:right; color:#5f8076; font-weight:600;">${symFor(x.currency)}${x.insShare.toFixed(0)}</td>
+                        <td style="padding:8px 12px; text-align:right; color:#8a7ab8;">${symFor(x.currency)}${x.bizShare.toFixed(0)}</td>
+                    </tr>`).join('')}
+                </tbody>
+                <tfoot>
+                    <tr style="background:#f0ede6; font-weight:700;">
+                        <td colspan="2" style="padding:10px 12px;">TOPLAM</td>
+                        <td style="padding:10px 12px; text-align:right;">${r.totalPkgValue.toFixed(0)} ₺</td>
+                        <td style="padding:10px 12px; text-align:right;">${r.totalPaid.toFixed(0)} ₺</td>
+                        <td style="padding:10px 12px; text-align:right; color:#5f8076;">${r.totalInsShare.toFixed(0)} ₺</td>
+                        <td style="padding:10px 12px; text-align:right; color:#8a7ab8;">${r.totalBizShare.toFixed(0)} ₺</td>
+                    </tr>
+                </tfoot>
+            </table>` : '<div style="padding:20px; text-align:center; color:#6b7a86; font-size:13px;">Bu eğitmene ait kayıt yok</div>'}
+        </div>
+    `).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="tr"><head><meta charset="UTF-8">
+<title>Eğitmen Raporu</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap');
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'DM Sans',sans-serif; background:#f5f3f0; color:#2d3340; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+@media print { body { background:white; } .no-print { display:none !important; } .page { box-shadow:none !important; margin:0 !important; } }
+.page { max-width:880px; margin:24px auto; background:white; padding:48px 56px; box-shadow:0 4px 24px rgba(0,0,0,.08); border-radius:8px; }
+</style></head>
+<body>
+<div class="page">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; padding-bottom:24px; border-bottom:2px solid #2d3340;">
+        <div>
+            <div style="font-family:'Playfair Display',serif; font-size:1.8rem; font-weight:700; color:#2d3340;">${bizName}</div>
+            <div style="font-size:13px; color:#6b7a86; margin-top:2px;">${bizTagline}</div>
+        </div>
+        <div style="text-align:right;">
+            <div style="font-size:11px; color:#6b7a86; text-transform:uppercase; letter-spacing:.08em;">Eğitmen Raporu</div>
+            <div style="font-size:13px; color:#2d3340; margin-top:2px;">${today}</div>
+        </div>
+    </div>
+
+    <!-- Genel özet -->
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:#e8e2db; margin:28px 0; border-radius:8px; overflow:hidden;">
+        <div style="background:white; padding:18px; text-align:center;">
+            <div style="font-size:11px; color:#6b7a86; text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px;">Toplam Tahsilat</div>
+            <div style="font-family:'Playfair Display',serif; font-size:1.6rem; font-weight:700;">${grandTotalPaid.toFixed(0)} ₺</div>
+        </div>
+        <div style="background:white; padding:18px; text-align:center;">
+            <div style="font-size:11px; color:#6b7a86; text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px;">Eğitmen Payları</div>
+            <div style="font-family:'Playfair Display',serif; font-size:1.6rem; font-weight:700; color:#5f8076;">${grandTotalInsShare.toFixed(0)} ₺</div>
+        </div>
+        <div style="background:white; padding:18px; text-align:center;">
+            <div style="font-size:11px; color:#6b7a86; text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px;">İşletme Payı</div>
+            <div style="font-family:'Playfair Display',serif; font-size:1.6rem; font-weight:700; color:#8a7ab8;">${grandTotalBizShare.toFixed(0)} ₺</div>
+        </div>
+    </div>
+
+    ${sectionsHTML}
+
+    <div style="margin-top:40px; padding-top:16px; border-top:1px solid #e8e2db; font-size:11px; color:#9aa5ad; text-align:center;">
+        ${bizName} tarafından oluşturulmuştur · ${today}
+    </div>
+</div>
+<div class="no-print" style="text-align:center; padding:16px; background:#f0ede8; border-top:1px solid #ddd8d2;">
+    <button onclick="window.print()" style="padding:11px 28px; background:#5f8076; color:white;
+        border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; margin-right:8px;">
+        🖨️ PDF Kaydet / Yazdır
+    </button>
+    <button onclick="window.close()" style="padding:11px 20px; background:#e8e2db; color:#2d3340;
+        border:none; border-radius:8px; font-size:14px; cursor:pointer;">
+        Kapat
+    </button>
+</div>
+</body></html>`;
+
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) { showNotification('Pop-up engellendi — tarayıcı izni verin', 'warning'); return; }
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => win.print(), 900);
+}
+
+window.generateInstructorReportPDF = generateInstructorReportPDF;
