@@ -276,42 +276,111 @@
 
     <!-- Borçlu listesi -->
     <div class="card" style="margin-bottom:20px;" id="debtListCard">
-      <div class="card-header">
-        <h2>⚠️ Bekleyen Ödemeler</h2>
-        <button class="btn btn-success btn-sm" onclick="openNotificationsPanel(window.sessionsData||[], window.clientsData||[], window.packagesData||[])">
-          💬 Toplu Hatırlat
-        </button>
+      <div class="card-header" onclick="toggleSection('debtSection', 'debtChevron')" style="cursor:pointer; user-select:none;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span id="debtChevron" style="font-size:12px; color:var(--stone); transition:transform .2s;">▼</span>
+          <h2>⚠️ Bekleyen Ödemeler <span id="debtCountBadge" style="font-size:13px; font-weight:500; color:var(--stone);"></span></h2>
+        </div>
+        <div style="display:flex; gap:8px;" onclick="event.stopPropagation()">
+          <button class="btn btn-success btn-sm" onclick="openNotificationsPanel(window.sessionsData||[], window.clientsData||[], window.packagesData||[])">
+            💬 Toplu Hatırlat
+          </button>
+        </div>
       </div>
-      <div class="card-body" style="padding:0;" id="debtList"></div>
+      <div id="debtSection">
+        <!-- Arama -->
+        <div style="padding:10px 16px; border-bottom:1px solid var(--border-soft); background:var(--surface-2);">
+          <div class="search-input">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="debtSearch" placeholder="Danışan ara..." oninput="renderDebtList()">
+          </div>
+        </div>
+        <div class="card-body" style="padding:0;" id="debtList"></div>
+      </div>
     </div>
 
     <!-- Ödeme geçmişi -->
     <div class="card">
-      <div class="card-header" style="flex-wrap:wrap; gap:10px;">
-        <h2>💳 Ödemeler</h2>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <div class="search-input" style="min-width:160px;">
+      <div class="card-header" onclick="toggleSection('paymentSection', 'paymentChevron')" style="cursor:pointer; user-select:none;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span id="paymentChevron" style="font-size:12px; color:var(--stone); transition:transform .2s;">▼</span>
+          <h2>💳 Ödemeler <span id="paymentCountBadge" style="font-size:13px; font-weight:500; color:var(--stone);"></span></h2>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); clearFinanceFilters()">↺ Temizle</button>
+      </div>
+      <div id="paymentSection">
+
+      <!-- Filtre toolbar -->
+      <div style="padding:14px 18px; background:var(--surface-2); border-bottom:1px solid var(--border-soft);
+                  display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+        <!-- Arama -->
+        <div style="flex:1; min-width:160px;">
+          <div style="font-size:11px; font-weight:600; color:var(--stone); text-transform:uppercase;
+                      letter-spacing:.05em; margin-bottom:5px;">Danışan Ara</div>
+          <div class="search-input">
             <span class="search-icon">🔍</span>
-            <input type="text" id="financeSearch" placeholder="Danışan ara..." oninput="renderPaymentHistory()">
+            <input type="text" id="financeSearch" placeholder="İsim yaz..." oninput="renderPaymentHistory()">
           </div>
-          <select id="financeFilterMethod" class="filter-select" style="min-width:110px;" onchange="renderPaymentHistory()">
-            <option value="all">Tüm Yöntemler</option>
+        </div>
+
+        <!-- Başlangıç tarihi -->
+        <div style="min-width:130px;">
+          <div style="font-size:11px; font-weight:600; color:var(--stone); text-transform:uppercase;
+                      letter-spacing:.05em; margin-bottom:5px;">Başlangıç</div>
+          <input type="date" id="financeFromDate"
+            style="width:100%; padding:10px 12px; border:1.5px solid var(--border); border-radius:var(--r-md);
+                   font-size:13px; background:var(--surface); color:var(--ink);"
+            onchange="renderPaymentHistory()">
+        </div>
+
+        <!-- Bitiş tarihi -->
+        <div style="min-width:130px;">
+          <div style="font-size:11px; font-weight:600; color:var(--stone); text-transform:uppercase;
+                      letter-spacing:.05em; margin-bottom:5px;">Bitiş</div>
+          <input type="date" id="financeToDate"
+            style="width:100%; padding:10px 12px; border:1.5px solid var(--border); border-radius:var(--r-md);
+                   font-size:13px; background:var(--surface); color:var(--ink);"
+            onchange="renderPaymentHistory()">
+        </div>
+
+        <!-- Yöntem -->
+        <div style="min-width:130px;">
+          <div style="font-size:11px; font-weight:600; color:var(--stone); text-transform:uppercase;
+                      letter-spacing:.05em; margin-bottom:5px;">Yöntem</div>
+          <select id="financeFilterMethod"
+            style="width:100%; padding:10px 12px; border:1.5px solid var(--border); border-radius:var(--r-md);
+                   font-size:13px; background:var(--surface); color:var(--ink);"
+            onchange="renderPaymentHistory()">
+            <option value="all">Tümü</option>
             <option value="Nakit">Nakit</option>
             <option value="Kredi Kartı">Kredi Kartı</option>
             <option value="Banka Transferi">Banka Transferi</option>
             <option value="Dijital Cüzdan">Dijital Cüzdan</option>
           </select>
-          <select id="financeFilterMonth" class="filter-select" style="min-width:110px;" onchange="renderPaymentHistory()">
+        </div>
+
+        <!-- Ay -->
+        <div style="min-width:120px;">
+          <div style="font-size:11px; font-weight:600; color:var(--stone); text-transform:uppercase;
+                      letter-spacing:.05em; margin-bottom:5px;">Ay</div>
+          <select id="financeFilterMonth"
+            style="width:100%; padding:10px 12px; border:1.5px solid var(--border); border-radius:var(--r-md);
+                   font-size:13px; background:var(--surface); color:var(--ink);"
+            onchange="renderPaymentHistory()">
             <option value="all">Tüm Aylar</option>
           </select>
-          <input type="date" id="financeFromDate" class="filter-select" style="min-width:120px;" onchange="renderPaymentHistory()">
-          <input type="date" id="financeToDate" class="filter-select" style="min-width:120px;" onchange="renderPaymentHistory()">
-          <button class="btn btn-secondary btn-sm" onclick="clearFinanceFilters()">↺</button>
         </div>
       </div>
+
+      <!-- Filtre özeti -->
+      <div id="financeFilterSummary" style="display:none; padding:8px 18px; background:rgba(143,173,161,.08);
+           border-bottom:1px solid var(--border-soft); font-size:13px; color:var(--sage-dark); font-weight:500;">
+      </div>
+
       <div class="card-body" style="padding:0;">
         <div id="paymentHistory"></div>
       </div>
+      </div><!-- /paymentSection -->
     </div>
 
   </div>

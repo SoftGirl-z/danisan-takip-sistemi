@@ -1431,11 +1431,36 @@ function renderFinance() {
     renderPaymentHistory();
 }
 
-function renderDebtList(debts) {
+function renderDebtList(debtsArg) {
     const el = document.getElementById('debtList');
     if (!el) return;
-    if (!debts || !debts.length) {
-        el.innerHTML = `<div style="padding:20px; text-align:center; color:var(--stone); font-size:14px;">✓ Bekleyen ödeme yok</div>`;
+
+    // Arama filtresi
+    const searchVal = (document.getElementById('debtSearch')?.value || '').toLowerCase().trim();
+
+    // debtsArg verilmediyse hesapla
+    let debts = debtsArg;
+    if (!debts) {
+        debts = packages
+            .map(p => ({ pkg: p, client: clients.find(c => c.id === p.clientId), debt: (p.price||0)-(p.paidAmount||0) }))
+            .filter(x => x.debt > 0 && x.client);
+    }
+
+    // Arama uygula
+    if (searchVal) {
+        debts = debts.filter(x => {
+            const name = (x.client?.name || x.name || '').toLowerCase();
+            return name.includes(searchVal);
+        });
+    }
+
+    // Badge
+    const badge = document.getElementById('debtCountBadge');
+    if (badge) badge.textContent = debts.length ? '(' + debts.length + ')' : '';
+
+    if (!debts.length) {
+        el.innerHTML = '<div style="padding:20px; text-align:center; color:var(--stone); font-size:14px;">' +
+            (searchVal ? 'Sonuç bulunamadı' : '✓ Bekleyen ödeme yok') + '</div>';
         return;
     }
     el.innerHTML = `<table class="finance-table">
@@ -1494,8 +1519,24 @@ function renderPaymentHistory() {
         });
     }
 
+    // Filtre özeti + badge güncelle
+    const summaryEl = document.getElementById('financeFilterSummary');
+    const hasFilter  = methodFilter !== 'all' || monthFilter !== 'all' || searchVal || fromDate || toDate;
+    const totalFiltered = filtered.reduce((s,p) => s+p.amount, 0);
+    const payBadge = document.getElementById('paymentCountBadge');
+    if (payBadge) payBadge.textContent = filtered.length ? '(' + filtered.length + ')' : '';
+    if (summaryEl) {
+        if (hasFilter && filtered.length > 0) {
+            summaryEl.style.display = 'block';
+            summaryEl.textContent = filtered.length + ' ödeme • Toplam: ' + totalFiltered.toFixed(0) + ' ₺';
+        } else {
+            summaryEl.style.display = 'none';
+        }
+    }
+
     if (!filtered.length) {
-        container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">💳</div><p>Ödeme bulunamadı</p></div>`;
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💳</div><p>Ödeme bulunamadı</p>' +
+            (hasFilter ? '<span>Filtreleri temizleyin</span>' : '') + '</div>';
         return;
     }
 
@@ -3165,6 +3206,22 @@ async function saveEditedClient(clientId) {
 window.openEditClientModal  = openEditClientModal;
 window.switchDetailTab      = switchDetailTab;
 window.saveEditedClient     = saveEditedClient;
+
+// ============================================================
+// ACCORDION - toggleSection
+// ============================================================
+function toggleSection(sectionId, chevronId) {
+    const section = document.getElementById(sectionId);
+    const chevron = document.getElementById(chevronId);
+    if (!section) return;
+    const isOpen = section.style.display !== 'none';
+    section.style.display = isOpen ? 'none' : 'block';
+    if (chevron) {
+        chevron.style.transform = isOpen ? 'rotate(-90deg)' : 'rotate(0deg)';
+    }
+}
+window.toggleSection = toggleSection;
+
 window.clearFinanceFilters  = function() {
     ['financeSearch','financeFilterMethod','financeFilterMonth','financeFromDate','financeToDate'].forEach(id => {
         const el = document.getElementById(id);
