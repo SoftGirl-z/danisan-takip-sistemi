@@ -1525,10 +1525,32 @@ function renderPaymentHistory() {
     const totalFiltered = filtered.reduce((s,p) => s+p.amount, 0);
     const payBadge = document.getElementById('paymentCountBadge');
     if (payBadge) payBadge.textContent = filtered.length ? '(' + filtered.length + ')' : '';
+
     if (summaryEl) {
         if (hasFilter && filtered.length > 0) {
-            summaryEl.style.display = 'block';
-            summaryEl.textContent = filtered.length + ' ödeme • Toplam: ' + totalFiltered.toFixed(0) + ' ₺';
+            let rangeLabel = '';
+            if (fromDate && toDate) {
+                rangeLabel = new Date(fromDate).toLocaleDateString('tr-TR') + ' — ' + new Date(toDate).toLocaleDateString('tr-TR');
+            } else if (fromDate) {
+                rangeLabel = new Date(fromDate).toLocaleDateString('tr-TR') + ' sonrası';
+            } else if (toDate) {
+                rangeLabel = new Date(toDate).toLocaleDateString('tr-TR') + ' öncesi';
+            }
+            summaryEl.style.display = 'flex';
+            summaryEl.style.alignItems = 'center';
+            summaryEl.style.justifyContent = 'space-between';
+            summaryEl.style.flexWrap = 'wrap';
+            summaryEl.style.gap = '8px';
+            summaryEl.innerHTML =
+                '<div>' +
+                    '<div style="font-size:11px; font-weight:600; color:var(--sage-dark); text-transform:uppercase; letter-spacing:.05em;">' +
+                        (rangeLabel || 'Filtrelenmiş Sonuç') +
+                    '</div>' +
+                    '<div style="font-size:13px; color:var(--ink-soft); margin-top:2px;">' + filtered.length + ' ödeme bulundu</div>' +
+                '</div>' +
+                '<div style="font-family:\'Playfair Display\',serif; font-size:1.8rem; font-weight:600; color:var(--sage-dark);">' +
+                    (typeof formatCurrency === 'function' ? formatCurrency(totalFiltered) : totalFiltered.toFixed(0) + ' ₺') +
+                '</div>';
         } else {
             summaryEl.style.display = 'none';
         }
@@ -3743,3 +3765,47 @@ async function saveQuickCheckIn(clientId, date, time, type, packageId) {
 window.quickCheckIn         = quickCheckIn;
 window.saveQuickCheckIn     = saveQuickCheckIn;
 window.openQuickCheckInModal = openQuickCheckInModal;
+
+// ============================================================
+// HIZLI TARİH ARALIĞI SEÇİMİ
+// ============================================================
+function setDateRangePreset(preset) {
+    const today = new Date();
+    const fmt = (d) => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+
+    let from, to;
+
+    switch(preset) {
+        case 'today':
+            from = to = fmt(today);
+            break;
+        case 'week': {
+            const weekAgo = new Date(today);
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            from = fmt(weekAgo);
+            to   = fmt(today);
+            break;
+        }
+        case 'thisMonth': {
+            const first = new Date(today.getFullYear(), today.getMonth(), 1);
+            from = fmt(first);
+            to   = fmt(today);
+            break;
+        }
+        case 'lastMonth': {
+            const firstLast = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            const lastLast  = new Date(today.getFullYear(), today.getMonth(), 0);
+            from = fmt(firstLast);
+            to   = fmt(lastLast);
+            break;
+        }
+    }
+
+    const fromEl = document.getElementById('financeFromDate');
+    const toEl   = document.getElementById('financeToDate');
+    if (fromEl) fromEl.value = from;
+    if (toEl)   toEl.value   = to;
+
+    renderPaymentHistory();
+}
+window.setDateRangePreset = setDateRangePreset;

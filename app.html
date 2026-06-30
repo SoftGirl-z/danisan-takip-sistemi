@@ -343,6 +343,18 @@
             onchange="renderPaymentHistory()">
         </div>
 
+        <!-- Hızlı tarih seçim -->
+        <div style="min-width:200px;">
+          <div style="font-size:11px; font-weight:600; color:var(--stone); text-transform:uppercase;
+                      letter-spacing:.05em; margin-bottom:5px;">Hızlı Seç</div>
+          <div style="display:flex; gap:5px; flex-wrap:wrap;">
+            <button class="btn btn-ghost btn-xs" onclick="setDateRangePreset('today')" style="border:1px solid var(--border); padding:8px 10px;">Bugün</button>
+            <button class="btn btn-ghost btn-xs" onclick="setDateRangePreset('week')" style="border:1px solid var(--border); padding:8px 10px;">7 Gün</button>
+            <button class="btn btn-ghost btn-xs" onclick="setDateRangePreset('thisMonth')" style="border:1px solid var(--border); padding:8px 10px;">Bu Ay</button>
+            <button class="btn btn-ghost btn-xs" onclick="setDateRangePreset('lastMonth')" style="border:1px solid var(--border); padding:8px 10px;">Geçen Ay</button>
+          </div>
+        </div>
+
         <!-- Yöntem -->
         <div style="min-width:130px;">
           <div style="font-size:11px; font-weight:600; color:var(--stone); text-transform:uppercase;
@@ -373,8 +385,8 @@
       </div>
 
       <!-- Filtre özeti -->
-      <div id="financeFilterSummary" style="display:none; padding:8px 18px; background:rgba(143,173,161,.08);
-           border-bottom:1px solid var(--border-soft); font-size:13px; color:var(--sage-dark); font-weight:500;">
+      <div id="financeFilterSummary" style="display:none; padding:16px 18px; background:linear-gradient(135deg,rgba(143,173,161,.1),rgba(184,169,212,.06));
+           border-bottom:1px solid var(--border-soft);">
       </div>
 
       <div class="card-body" style="padding:0;">
