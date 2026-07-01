@@ -288,24 +288,75 @@ function initializeForm() {
 }
 
 function updateClientSelects() {
-    const selects = ['sessionClient', 'packageClient', 'paymentClient'];
-    selects.forEach(selectId => {
-        const select = document.getElementById(selectId);
-        if (!select) return;
-        
-        const currentValue = select.value;
-        select.innerHTML = '<option value="">-- Danışan Seç --</option>';
-        
-        clients.forEach(client => {
-            const option = document.createElement('option');
-            option.value = client.id;
-            option.textContent = `${client.name} (${client.phone})`;
-            select.appendChild(option);
+    // paymentClient hidden input - değiştirme
+    // sessionClient ve packageClient artık searchable dropdown
+    populateClientDropdown('sessionClientList', 'sessionClient', 'sessionClientSearch');
+    populateClientDropdown('packageClientList', 'packageClient', 'packageClientSearch');
+}
+
+function populateClientDropdown(listId, hiddenId, searchId) {
+    const list = document.getElementById(listId);
+    if (!list) return;
+    const searchEl = document.getElementById(searchId);
+    const search   = (searchEl?.value || '').toLowerCase().trim();
+    const filtered = search
+        ? clients.filter(c => c.name.toLowerCase().includes(search) || (c.phone||'').includes(search))
+        : clients;
+
+    // DOM ile oluştur - string quoting sorununu önler
+    list.innerHTML = '';
+    if (!filtered.length) {
+        const empty = document.createElement('div');
+        empty.style.cssText = 'padding:10px 14px; color:var(--stone); font-size:13px;';
+        empty.textContent = 'Danışan bulunamadı';
+        list.appendChild(empty);
+        return;
+    }
+    filtered.forEach(function(c) {
+        const item = document.createElement('div');
+        item.style.cssText = 'padding:10px 14px; cursor:pointer; font-size:13px; border-bottom:1px solid var(--border-soft);';
+        item.innerHTML = '<strong>' + c.name + '</strong>' +
+            '<span style="font-size:11px;color:var(--stone);margin-left:8px;">' + (c.phone||'') + '</span>';
+        item.addEventListener('mouseover', function() { this.style.background = 'var(--surface-2)'; });
+        item.addEventListener('mouseout',  function() { this.style.background = ''; });
+        item.addEventListener('click', function() {
+            selectClientFromDropdown(c.id, c.name, c.phone || '', hiddenId, searchId, listId);
         });
-        
-        if (currentValue) select.value = currentValue;
+        list.appendChild(item);
     });
 }
+
+function selectClientFromDropdown(clientId, name, phone, hiddenId, searchId, listId) {
+    const hidden = document.getElementById(hiddenId);
+    const search = document.getElementById(searchId);
+    const list   = document.getElementById(listId);
+    if (hidden) hidden.value = clientId;
+    if (search) search.value = name + (phone ? ' (' + phone + ')' : '');
+    if (list)   list.style.display = 'none';
+    if (hiddenId === 'sessionClient' && typeof checkSessionConflict === 'function') {
+        checkSessionConflict();
+    }
+}
+
+function filterClientDropdown(searchId, listId) {
+    const hiddenId = searchId.replace('Search', '');
+    populateClientDropdown(listId, hiddenId, searchId);
+    const list = document.getElementById(listId);
+    if (list) list.style.display = 'block';
+}
+
+// Dropdown dışına tıklayınca kapat
+document.addEventListener('click', function(e) {
+    ['sessionClientList','packageClientList'].forEach(function(id) {
+        const list = document.getElementById(id);
+        if (!list) return;
+        const searchId = id.replace('List','Search');
+        const search   = document.getElementById(searchId);
+        if (list && !list.contains(e.target) && e.target !== search) {
+            list.style.display = 'none';
+        }
+    });
+});
 
 // ========================================
 // NOTIFICATION SYSTEM
@@ -3382,6 +3433,7 @@ async function buildPackageFromPriceList() {
     const cardsHTML = priceTemplates.map((t, i) => {
         const sym = t.currency === 'USD' ? '$' : t.currency === 'EUR' ? '€' : t.currency === 'GBP' ? '£' : '₺';
         const perSession = t.sessions > 0 ? (t.price / t.sessions).toFixed(0) : '0';
+        const ins = t.instructorId ? instructors.find(function(x) { return x.id === t.instructorId; }) : null;
         var hoverIn  = "this.style.outline='2px solid var(--sage-dark)'";
         var hoverOut = "this.style.outline=''";
         return '<div onclick="applyPriceTemplate(' + i + ')"' +
@@ -3391,8 +3443,11 @@ async function buildPackageFromPriceList() {
             ' onmouseout="' + hoverOut + '">' +
             '<div style="display:flex; justify-content:space-between; align-items:center;">' +
                 '<div style="flex:1; min-width:0;">' +
-                    '<div style="font-weight:600; font-size:14px; color:var(--ink);">' + t.name + '</div>' +
-                    '<div style="font-size:12px; color:var(--stone); margin-top:3px;">' +
+                    '<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">' +
+                        '<div style="font-weight:600; font-size:14px; color:var(--ink);">' + t.name + '</div>' +
+                        (ins ? '<span style="padding:2px 8px; background:rgba(184,169,212,.2); color:#6b5aad; border-radius:99px; font-size:11px; font-weight:600;">👩‍🏫 ' + ins.name + '</span>' : '') +
+                    '</div>' +
+                    '<div style="font-size:12px; color:var(--stone); margin-top:4px;">' +
                         t.sessions + ' seans' +
                         (t.type ? ' · ' + t.type : '') +
                         ' · ' + sym + perSession + '/seans' +

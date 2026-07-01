@@ -547,9 +547,20 @@
     <div class="modal-body">
       <div class="form-group">
         <label>Danışan *</label>
-        <select id="sessionClient" onchange="checkSessionConflict()">
-          <option value="">— Seçiniz —</option>
-        </select>
+        <div style="position:relative;">
+          <input type="text" id="sessionClientSearch" placeholder="Danışan ara..."
+            oninput="filterClientDropdown('sessionClientSearch','sessionClientList')"
+            onfocus="document.getElementById('sessionClientList').style.display='block'"
+            style="width:100%; padding:11px 14px; border:1.5px solid var(--border); border-radius:var(--r-md); font-size:14px;"
+            autocomplete="off">
+          <input type="hidden" id="sessionClient">
+          <div id="sessionClientList"
+            style="display:none; position:absolute; top:100%; left:0; right:0; z-index:999;
+                   background:var(--surface); border:1.5px solid var(--border); border-top:none;
+                   border-radius:0 0 var(--r-md) var(--r-md); max-height:200px; overflow-y:auto;
+                   box-shadow:var(--shadow-md);">
+          </div>
+        </div>
       </div>
       <div id="sessionConflictWarn" style="display:none; padding:10px 14px;
            background:rgba(232,196,124,.2); border-left:3px solid var(--warning);
@@ -608,7 +619,20 @@
     <div class="modal-body">
       <div class="form-group">
         <label>Danışan *</label>
-        <select id="packageClient"><option value="">— Seçiniz —</option></select>
+        <div style="position:relative;">
+          <input type="text" id="packageClientSearch" placeholder="Danışan ara..."
+            oninput="filterClientDropdown('packageClientSearch','packageClientList')"
+            onfocus="document.getElementById('packageClientList').style.display='block'"
+            style="width:100%; padding:11px 14px; border:1.5px solid var(--border); border-radius:var(--r-md); font-size:14px;"
+            autocomplete="off">
+          <input type="hidden" id="packageClient">
+          <div id="packageClientList"
+            style="display:none; position:absolute; top:100%; left:0; right:0; z-index:999;
+                   background:var(--surface); border:1.5px solid var(--border); border-top:none;
+                   border-radius:0 0 var(--r-md) var(--r-md); max-height:200px; overflow-y:auto;
+                   box-shadow:var(--shadow-md);">
+          </div>
+        </div>
       </div>
       <button class="btn btn-secondary w-full" style="margin-bottom:12px;"
           onclick="buildPackageFromPriceList()">
