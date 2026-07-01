@@ -604,10 +604,20 @@ function openAddSessionModal(preClientId = null) {
     document.getElementById('sessionDate').value = d.toISOString().split('T')[0];
     document.getElementById('sessionTime').value = '09:00';
 
+    // Arama kutusunu temizle
+    const sessSearch = document.getElementById('sessionClientSearch');
+    const sessHidden = document.getElementById('sessionClient');
+    if (sessSearch) sessSearch.value = '';
+    if (sessHidden) sessHidden.value = '';
+
     if (preClientId) {
-        document.getElementById('sessionClient').value = preClientId;
-        checkSessionConflict(); // anlık kontrol
+        const c = clients.find(x => x.id === preClientId);
+        if (sessHidden) sessHidden.value = preClientId;
+        if (sessSearch && c) sessSearch.value = c.name + ' (' + (c.phone||'') + ')';
+        checkSessionConflict();
     }
+    // Listeyi yükle (ama kapalı)
+    populateClientDropdown('sessionClientList', 'sessionClient', 'sessionClientSearch');
 }
 
 function closeAddSessionModal() {
@@ -615,12 +625,18 @@ function closeAddSessionModal() {
 }
 
 function clearSessionForm() {
-    document.getElementById('sessionClient').value = '';
-    document.getElementById('sessionDate').value = '';
-    document.getElementById('sessionTime').value = '09:00';
-    document.getElementById('sessionType').value = 'Fizyoterapi';
-    document.getElementById('sessionDuration').value = '60';
-    document.getElementById('sessionNotes').value = '';
+    const h = document.getElementById('sessionClient');
+    const s = document.getElementById('sessionClientSearch');
+    if (h) h.value = '';
+    if (s) s.value = '';
+    document.getElementById('sessionDate').value  = '';
+    document.getElementById('sessionTime').value  = '09:00';
+    const typeEl = document.getElementById('sessionType');
+    if (typeEl) typeEl.value = sessionTypes[0] || '';
+    const durEl = document.getElementById('sessionDuration');
+    if (durEl) durEl.value = '60';
+    const notesEl = document.getElementById('sessionNotes');
+    if (notesEl) notesEl.value = '';
 }
 
 async function saveSession() {
