@@ -229,18 +229,88 @@
 
   <!-- ══════════════════ REPORTS PAGE ══════════════════ -->
   <div id="reportsPage" class="page">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; flex-wrap:wrap; gap:10px;">
-      <h2>📊 Eğitmen Raporlama</h2>
-      <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        <select id="reportInstructorFilter" class="filter-select" onchange="renderInstructorReports()" style="min-width:180px;">
-          <option value="all">Tüm Eğitmenler</option>
-        </select>
-        <button class="btn btn-primary btn-sm" onclick="generateInstructorReportPDF()">
-          🖨️ PDF Rapor İndir
-        </button>
-      </div>
+
+    <!-- Rapor tipi sekmeleri -->
+    <div style="display:flex; gap:0; border-bottom:1px solid var(--border-soft); margin-bottom:20px; overflow-x:auto;">
+      <button id="rtab_instructors" onclick="switchReportTab('instructors')"
+        style="padding:11px 20px; border:none; background:none; cursor:pointer; font-family:DM Sans,sans-serif;
+               font-size:13px; font-weight:600; white-space:nowrap;
+               border-bottom:2.5px solid var(--sage-dark); color:var(--sage-dark);">
+        👩‍🏫 Eğitmen Raporu
+      </button>
+      <button id="rtab_monthly" onclick="switchReportTab('monthly')"
+        style="padding:11px 20px; border:none; background:none; cursor:pointer; font-family:DM Sans,sans-serif;
+               font-size:13px; font-weight:600; white-space:nowrap;
+               border-bottom:2.5px solid transparent; color:var(--stone);">
+        📅 Aylık Rapor
+      </button>
+      <button id="rtab_yearly" onclick="switchReportTab('yearly')"
+        style="padding:11px 20px; border:none; background:none; cursor:pointer; font-family:DM Sans,sans-serif;
+               font-size:13px; font-weight:600; white-space:nowrap;
+               border-bottom:2.5px solid transparent; color:var(--stone);">
+        📆 Yıllık Rapor
+      </button>
+      <button id="rtab_clients" onclick="switchReportTab('clients')"
+        style="padding:11px 20px; border:none; background:none; cursor:pointer; font-family:DM Sans,sans-serif;
+               font-size:13px; font-weight:600; white-space:nowrap;
+               border-bottom:2.5px solid transparent; color:var(--stone);">
+        👥 Danışan Raporu
+      </button>
     </div>
-    <div id="reportsContainer"></div>
+
+    <!-- Eğitmen Raporu -->
+    <div id="reportSection_instructors">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+        <div style="font-size:13px; color:var(--stone);">Eğitmenlerin danışan, ciro ve komisyon özeti</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <select id="reportInstructorFilter" class="filter-select" onchange="renderInstructorReports()" style="min-width:180px;">
+            <option value="all">Tüm Eğitmenler</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="generateInstructorReportPDF()">🖨️ PDF İndir</button>
+        </div>
+      </div>
+      <div id="reportsContainer"></div>
+    </div>
+
+    <!-- Aylık Rapor -->
+    <div id="reportSection_monthly" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+        <div style="font-size:13px; color:var(--stone);">Seçili ay için gelir, seans ve danışan özeti</div>
+        <div style="display:flex; gap:8px;">
+          <select id="reportMonthFilter" class="filter-select" onchange="renderMonthlyReport()"></select>
+          <button class="btn btn-primary btn-sm" onclick="generateMonthlyReportPDF()">🖨️ PDF İndir</button>
+        </div>
+      </div>
+      <div id="monthlyReportContainer"></div>
+    </div>
+
+    <!-- Yıllık Rapor -->
+    <div id="reportSection_yearly" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+        <div style="font-size:13px; color:var(--stone);">Yıl bazında gelir trendi ve özet</div>
+        <div style="display:flex; gap:8px;">
+          <select id="reportYearFilter" class="filter-select" onchange="renderYearlyReport()"></select>
+          <button class="btn btn-primary btn-sm" onclick="generateYearlyReportPDF()">🖨️ PDF İndir</button>
+        </div>
+      </div>
+      <div id="yearlyReportContainer"></div>
+    </div>
+
+    <!-- Danışan Raporu -->
+    <div id="reportSection_clients" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+        <div style="font-size:13px; color:var(--stone);">Tüm danışanların seans ve ödeme özeti</div>
+        <div style="display:flex; gap:8px;">
+          <div class="search-input" style="min-width:160px;">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="reportClientSearch" placeholder="Danışan ara..." oninput="renderClientReport()">
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="generateClientReportPDF()">🖨️ PDF İndir</button>
+        </div>
+      </div>
+      <div id="clientReportContainer"></div>
+    </div>
+
   </div>
 
   <!-- ══════════════════ FINANCE PAGE ══════════════════ -->

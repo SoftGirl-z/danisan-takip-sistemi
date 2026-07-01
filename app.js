@@ -1438,6 +1438,9 @@ function renderFinance() {
 
     // Ödeme geçmişi
     renderPaymentHistory();
+
+    // Accordion'ları kapat
+    setTimeout(initAccordions, 50);
 }
 
 function renderDebtList(debtsArg) {
@@ -3280,7 +3283,26 @@ function toggleSection(sectionId, chevronId) {
         chevron.style.transform = isOpen ? 'rotate(-90deg)' : 'rotate(0deg)';
     }
 }
-window.toggleSection = toggleSection;
+
+// Accordion'ları başlangıçta kapalı yap
+function initAccordions() {
+    // Finans - bekleyen ödemeler
+    const debtSec = document.getElementById('debtSection');
+    if (debtSec) {
+        debtSec.style.display = 'none';
+        const ch = document.getElementById('debtChevron');
+        if (ch) ch.style.transform = 'rotate(-90deg)';
+    }
+    // Finans - ödemeler
+    const paySec = document.getElementById('paymentSection');
+    if (paySec) {
+        paySec.style.display = 'none';
+        const ch = document.getElementById('paymentChevron');
+        if (ch) ch.style.transform = 'rotate(-90deg)';
+    }
+}
+window.toggleSection  = toggleSection;
+window.initAccordions = initAccordions;
 
 window.clearFinanceFilters  = function() {
     ['financeSearch','financeFilterMethod','financeFilterMonth','financeFromDate','financeToDate'].forEach(id => {
@@ -4342,3 +4364,532 @@ body { font-family:'DM Sans',sans-serif; background:#f5f3f0; color:#2d3340; -web
 }
 
 window.generateInstructorReportPDF = generateInstructorReportPDF;
+
+// ============================================================
+// RAPORLAMA - SEKME SİSTEMİ
+// ============================================================
+function switchReportTab(tab) {
+    ['instructors','monthly','yearly','clients'].forEach(t => {
+        const sec = document.getElementById('reportSection_' + t);
+        const btn = document.getElementById('rtab_' + t);
+        if (sec) sec.style.display = t === tab ? 'block' : 'none';
+        if (btn) {
+            btn.style.borderBottomColor = t === tab ? 'var(--sage-dark)' : 'transparent';
+            btn.style.color             = t === tab ? 'var(--sage-dark)' : 'var(--stone)';
+        }
+    });
+
+    if (tab === 'monthly')    { initMonthFilter();  renderMonthlyReport(); }
+    if (tab === 'yearly')     { initYearFilter();   renderYearlyReport(); }
+    if (tab === 'clients')    { renderClientReport(); }
+    if (tab === 'instructors') renderInstructorReports();
+}
+window.switchReportTab = switchReportTab;
+
+// ── AYLIK RAPOR ──────────────────────────────────────────────
+function initMonthFilter() {
+    const sel = document.getElementById('reportMonthFilter');
+    if (!sel || sel.options.length > 1) return;
+    const months = [...new Set(payments.map(p => p.date?.slice(0,7)))].filter(Boolean).sort().reverse();
+    const names  = ['','Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+    sel.innerHTML = months.map(m => {
+        const [y, mo] = m.split('-');
+        return `<option value="${m}">${names[parseInt(mo)]} ${y}</option>`;
+    }).join('');
+    if (!sel.value && months[0]) sel.value = months[0];
+}
+
+function renderMonthlyReport() {
+    const container = document.getElementById('monthlyReportContainer');
+    if (!container) return;
+    const month = document.getElementById('reportMonthFilter')?.value;
+    if (!month) { container.innerHTML = '<div class="empty-state"><p>Ay seçin</p></div>'; return; }
+
+    const [y, mo] = month.split('-');
+    const names   = ['','Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+    const monthLabel = names[parseInt(mo)] + ' ' + y;
+
+    const monthPayments = payments.filter(p => p.date?.startsWith(month));
+    const monthSessions = sessions.filter(s => s.date?.startsWith(month) && s.status !== 'absent');
+    const monthClients  = [...new Set(monthSessions.map(s => s.clientId))];
+    const totalRevenue  = monthPayments.reduce((s,p) => s+p.amount, 0);
+    const totalExpenses = (typeof expenses !== 'undefined' ? expenses : []).filter(e => e.date?.startsWith(month)).reduce((s,e) => s+e.amount, 0);
+    const netProfit     = totalRevenue - totalExpenses;
+
+    // Hoca bazlı özet
+    const insBreakdown = instructors.map(ins => {
+        const insPkgs   = packages.filter(p => p.instructorId === ins.id);
+        const insPkgIds = insPkgs.map(p => p.id);
+        const insPays   = monthPayments.filter(p => insPkgIds.includes(p.packageId));
+        const insRev    = insPays.reduce((s,p) => s+p.amount, 0);
+        const insShare  = insRev * (ins.commission/100);
+        return { ins, revenue: insRev, share: insShare };
+    }).filter(r => r.revenue > 0);
+
+    // Ödeme yöntemi dağılımı
+    const methodBreakdown = {};
+    monthPayments.forEach(p => {
+        const m = p.method || 'Diğer';
+        methodBreakdown[m] = (methodBreakdown[m] || 0) + p.amount;
+    });
+
+    container.innerHTML = `
+        <!-- KPI -->
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px;">
+            <div class="finance-card">
+                <h3>Toplam Gelir</h3>
+                <div class="amount">${totalRevenue.toFixed(0)} ₺</div>
+                <div style="font-size:12px; color:var(--stone); margin-top:4px;">${monthPayments.length} ödeme</div>
+            </div>
+            <div class="finance-card">
+                <h3>Seans Sayısı</h3>
+                <div class="amount">${monthSessions.length}</div>
+                <div style="font-size:12px; color:var(--stone); margin-top:4px;">${monthClients.length} danışan</div>
+            </div>
+            <div class="finance-card">
+                <h3>Giderler</h3>
+                <div class="amount" style="color:var(--danger);">${totalExpenses.toFixed(0)} ₺</div>
+                <div style="font-size:12px; color:var(--stone); margin-top:4px;">Bu ay</div>
+            </div>
+            <div class="finance-card">
+                <h3>Net Kâr</h3>
+                <div class="amount" style="color:${netProfit >= 0 ? 'var(--sage-dark)' : 'var(--danger)'};">${netProfit.toFixed(0)} ₺</div>
+                <div style="font-size:12px; color:var(--stone); margin-top:4px;">Gelir - Gider</div>
+            </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+            <!-- Eğitmen dağılımı -->
+            <div class="card">
+                <div class="card-header"><h3>👩‍🏫 Eğitmen Bazlı Ciro</h3></div>
+                <div class="card-body" style="padding:0;">
+                    ${insBreakdown.length ? `
+                    <table class="finance-table">
+                        <thead><tr><th>Eğitmen</th><th>Komisyon</th><th>Ciro</th><th>Pay</th></tr></thead>
+                        <tbody>
+                        ${insBreakdown.map(r => `<tr>
+                            <td><strong>${r.ins.name}</strong></td>
+                            <td>%${r.ins.commission}</td>
+                            <td>${r.revenue.toFixed(0)} ₺</td>
+                            <td style="color:var(--sage-dark); font-weight:600;">${r.share.toFixed(0)} ₺</td>
+                        </tr>`).join('')}
+                        </tbody>
+                    </table>` : '<div style="padding:20px; text-align:center; color:var(--stone); font-size:13px;">Eğitmen kaydı yok</div>'}
+                </div>
+            </div>
+
+            <!-- Ödeme yöntemi -->
+            <div class="card">
+                <div class="card-header"><h3>💳 Ödeme Yöntemi</h3></div>
+                <div class="card-body" style="padding:0;">
+                    <table class="finance-table">
+                        <thead><tr><th>Yöntem</th><th>Tutar</th><th>Pay</th></tr></thead>
+                        <tbody>
+                        ${Object.entries(methodBreakdown).map(([m, v]) => `<tr>
+                            <td>${m}</td>
+                            <td>${v.toFixed(0)} ₺</td>
+                            <td style="color:var(--stone); font-size:12px;">%${((v/totalRevenue)*100).toFixed(1)}</td>
+                        </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ödemeler listesi -->
+        <div class="card">
+            <div class="card-header">
+                <h3>💳 ${monthLabel} Ödemeleri</h3>
+                <span style="font-size:13px; color:var(--stone);">${monthPayments.length} kayıt</span>
+            </div>
+            <div class="card-body" style="padding:0;">
+                ${monthPayments.length ? `
+                <table class="finance-table">
+                    <thead><tr><th>Danışan</th><th>Paket</th><th>Tarih</th><th>Yöntem</th><th>Tutar</th></tr></thead>
+                    <tbody>
+                    ${[...monthPayments].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(p => {
+                        const c   = clients.find(c => c.id === p.clientId);
+                        const pkg = packages.find(pk => pk.id === p.packageId);
+                        return `<tr>
+                            <td><strong>${c?.name || '—'}</strong></td>
+                            <td style="color:var(--stone); font-size:13px;">${pkg?.name || '—'}</td>
+                            <td>${new Date(p.date).toLocaleDateString('tr-TR')}</td>
+                            <td>${p.method || '—'}</td>
+                            <td><strong style="color:var(--sage-dark);">${p.amount.toFixed(0)} ₺</strong></td>
+                        </tr>`;
+                    }).join('')}
+                    </tbody>
+                </table>` : '<div class="empty-state" style="padding:24px;"><p>Bu ay ödeme yok</p></div>'}
+            </div>
+        </div>`;
+}
+
+// ── YILLIK RAPOR ─────────────────────────────────────────────
+function initYearFilter() {
+    const sel = document.getElementById('reportYearFilter');
+    if (!sel || sel.options.length > 1) return;
+    const years = [...new Set(payments.map(p => p.date?.slice(0,4)))].filter(Boolean).sort().reverse();
+    sel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+    if (!sel.value && years[0]) sel.value = years[0];
+}
+
+function renderYearlyReport() {
+    const container = document.getElementById('yearlyReportContainer');
+    if (!container) return;
+    const year = document.getElementById('reportYearFilter')?.value;
+    if (!year) { container.innerHTML = '<div class="empty-state"><p>Yıl seçin</p></div>'; return; }
+
+    const monthNames = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+
+    const yearPayments = payments.filter(p => p.date?.startsWith(year));
+    const yearSessions = sessions.filter(s => s.date?.startsWith(year) && s.status !== 'absent');
+    const yearClients  = [...new Set(yearPayments.map(p => p.clientId))];
+    const totalRev     = yearPayments.reduce((s,p) => s+p.amount, 0);
+    const yearExpenses = (typeof expenses !== 'undefined' ? expenses : []).filter(e => e.date?.startsWith(year));
+    const totalExp     = yearExpenses.reduce((s,e) => s+e.amount, 0);
+
+    // Ay ay dağılım
+    const monthlyData = Array.from({length:12}, (_,i) => {
+        const m   = year + '-' + String(i+1).padStart(2,'0');
+        const rev = yearPayments.filter(p => p.date?.startsWith(m)).reduce((s,p) => s+p.amount, 0);
+        const exp = yearExpenses.filter(e => e.date?.startsWith(m)).reduce((s,e) => s+e.amount, 0);
+        const ses = yearSessions.filter(s => s.date?.startsWith(m)).length;
+        return { month: monthNames[i], rev, exp, net: rev-exp, ses };
+    });
+
+    const maxRev = Math.max(...monthlyData.map(d => d.rev), 1);
+
+    container.innerHTML = `
+        <!-- KPI -->
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px;">
+            <div class="finance-card">
+                <h3>${year} Yıl Geliri</h3>
+                <div class="amount">${totalRev.toFixed(0)} ₺</div>
+                <div style="font-size:12px; color:var(--stone); margin-top:4px;">${yearPayments.length} ödeme</div>
+            </div>
+            <div class="finance-card">
+                <h3>Toplam Seans</h3>
+                <div class="amount">${yearSessions.length}</div>
+                <div style="font-size:12px; color:var(--stone); margin-top:4px;">${yearClients.length} danışan</div>
+            </div>
+            <div class="finance-card">
+                <h3>Toplam Gider</h3>
+                <div class="amount" style="color:var(--danger);">${totalExp.toFixed(0)} ₺</div>
+            </div>
+            <div class="finance-card">
+                <h3>Net Kâr</h3>
+                <div class="amount" style="color:var(--sage-dark);">${(totalRev-totalExp).toFixed(0)} ₺</div>
+            </div>
+        </div>
+
+        <!-- Bar grafik -->
+        <div class="card" style="margin-bottom:20px;">
+            <div class="card-header"><h3>📈 Aylık Gelir Trendi</h3></div>
+            <div class="card-body">
+                <div style="display:flex; align-items:flex-end; gap:6px; height:120px; padding-bottom:24px; position:relative;">
+                    ${monthlyData.map(d => `
+                    <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;">
+                        <div style="font-size:10px; color:var(--stone); margin-bottom:4px;">${d.rev > 0 ? d.rev.toFixed(0) : ''}</div>
+                        <div style="width:100%; background:var(--sage); border-radius:4px 4px 0 0;
+                             height:${Math.round((d.rev/maxRev)*80)}px; min-height:${d.rev>0?2:0}px; transition:height .3s;"></div>
+                        <div style="font-size:9px; color:var(--stone); margin-top:4px;">${d.month.slice(0,3)}</div>
+                    </div>`).join('')}
+                </div>
+            </div>
+        </div>
+
+        <!-- Ay ay tablo -->
+        <div class="card">
+            <div class="card-header"><h3>📅 Ay Bazlı Özet</h3></div>
+            <div class="card-body" style="padding:0;">
+                <table class="finance-table">
+                    <thead><tr><th>Ay</th><th>Gelir</th><th>Gider</th><th>Net Kâr</th><th>Seans</th></tr></thead>
+                    <tbody>
+                    ${monthlyData.map(d => `<tr>
+                        <td><strong>${d.month}</strong></td>
+                        <td style="color:var(--sage-dark);">${d.rev > 0 ? d.rev.toFixed(0)+' ₺' : '—'}</td>
+                        <td style="color:var(--danger);">${d.exp > 0 ? d.exp.toFixed(0)+' ₺' : '—'}</td>
+                        <td style="font-weight:600; color:${d.net>=0?'var(--sage-dark)':'var(--danger)'};">${d.rev>0||d.exp>0 ? d.net.toFixed(0)+' ₺' : '—'}</td>
+                        <td>${d.ses > 0 ? d.ses : '—'}</td>
+                    </tr>`).join('')}
+                    </tbody>
+                    <tfoot>
+                        <tr style="font-weight:700; background:var(--surface-2);">
+                            <td>TOPLAM</td>
+                            <td style="color:var(--sage-dark);">${totalRev.toFixed(0)} ₺</td>
+                            <td style="color:var(--danger);">${totalExp.toFixed(0)} ₺</td>
+                            <td style="color:var(--sage-dark);">${(totalRev-totalExp).toFixed(0)} ₺</td>
+                            <td>${yearSessions.length}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>`;
+}
+
+// ── DANIŞAN RAPORU ────────────────────────────────────────────
+function renderClientReport() {
+    const container = document.getElementById('clientReportContainer');
+    if (!container) return;
+    const search = (document.getElementById('reportClientSearch')?.value || '').toLowerCase().trim();
+
+    let filtered = clients.filter(c => !search || c.name.toLowerCase().includes(search));
+
+    const rows = filtered.map(c => {
+        const cSessions = sessions.filter(s => s.clientId === c.id && s.status !== 'absent');
+        const cAbsent   = sessions.filter(s => s.clientId === c.id && s.status === 'absent');
+        const cPackages = packages.filter(p => p.clientId === c.id);
+        const cPayments = payments.filter(p => p.clientId === c.id);
+        const totalPaid = cPayments.reduce((s,p) => s+p.amount, 0);
+        const totalDebt = cPackages.reduce((s,p) => s+Math.max(0,(p.price||0)-(p.paidAmount||0)), 0);
+        const lastSes   = cSessions.sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
+        const ins       = cPackages[0]?.instructorId ? instructors.find(i => i.id === cPackages[0].instructorId) : null;
+
+        return { c, cSessions, cAbsent, cPackages, cPayments, totalPaid, totalDebt, lastSes, ins };
+    });
+
+    container.innerHTML = `
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px;">
+            <div class="finance-card">
+                <h3>Toplam Danışan</h3>
+                <div class="amount">${filtered.length}</div>
+            </div>
+            <div class="finance-card">
+                <h3>Toplam Tahsilat</h3>
+                <div class="amount">${rows.reduce((s,r)=>s+r.totalPaid,0).toFixed(0)} ₺</div>
+            </div>
+            <div class="finance-card">
+                <h3>Toplam Borç</h3>
+                <div class="amount" style="color:var(--danger);">${rows.reduce((s,r)=>s+r.totalDebt,0).toFixed(0)} ₺</div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body" style="padding:0;">
+                <table class="finance-table">
+                    <thead><tr><th>Danışan</th><th>Eğitmen</th><th>Seans</th><th>Dev.</th><th>Tahsilat</th><th>Borç</th><th>Son Seans</th></tr></thead>
+                    <tbody>
+                    ${rows.map(r => `<tr>
+                        <td><strong>${r.c.name}</strong><br><span style="font-size:11px;color:var(--stone);">${r.c.phone}</span></td>
+                        <td style="font-size:12px; color:var(--stone);">${r.ins ? r.ins.name : '—'}</td>
+                        <td><strong>${r.cSessions.length}</strong></td>
+                        <td style="color:var(--danger);">${r.cAbsent.length > 0 ? r.cAbsent.length : '—'}</td>
+                        <td style="color:var(--sage-dark); font-weight:600;">${r.totalPaid > 0 ? r.totalPaid.toFixed(0)+' ₺' : '—'}</td>
+                        <td style="color:var(--danger);">${r.totalDebt > 0 ? r.totalDebt.toFixed(0)+' ₺' : '—'}</td>
+                        <td style="font-size:12px; color:var(--stone);">${r.lastSes ? new Date(r.lastSes.date).toLocaleDateString('tr-TR') : '—'}</td>
+                    </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+}
+
+// ── PDF BUTONLARI ─────────────────────────────────────────────
+function generateMonthlyReportPDF() {
+    const month = document.getElementById('reportMonthFilter')?.value;
+    if (!month) { showNotification('Ay seçin', 'warning'); return; }
+    const profile   = window._currentProfile || {};
+    const bizName   = profile.businessName || 'İşletme';
+    const today     = new Date().toLocaleDateString('tr-TR');
+    const names     = ['','Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+    const [y, mo]   = month.split('-');
+    const monthLabel = names[parseInt(mo)] + ' ' + y;
+
+    const monthPayments = payments.filter(p => p.date?.startsWith(month));
+    const monthSessions = sessions.filter(s => s.date?.startsWith(month) && s.status !== 'absent');
+    const totalRev      = monthPayments.reduce((s,p) => s+p.amount, 0);
+    const monthExpenses = (typeof expenses !== 'undefined' ? expenses : []).filter(e => e.date?.startsWith(month));
+    const totalExp      = monthExpenses.reduce((s,e) => s+e.amount, 0);
+
+    const html = `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8">
+<title>Aylık Rapor - ${monthLabel}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:#f5f3f0;color:#2d3340;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+@media print{body{background:white}.no-print{display:none!important}}
+.page{max-width:860px;margin:24px auto;background:white;padding:48px 56px;box-shadow:0 4px 24px rgba(0,0,0,.08);border-radius:8px}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:24px}
+th{background:#2d3340;color:white;padding:9px 12px;text-align:left;font-weight:600;font-size:12px}
+td{padding:8px 12px;border-bottom:1px solid #e8e2db}tr:nth-child(even) td{background:#f7f5f1}
+.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#e8e2db;border-radius:8px;overflow:hidden;margin:24px 0}
+.kpi-item{background:white;padding:16px;text-align:center}
+.kpi-label{font-size:11px;color:#6b7a86;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.kpi-value{font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700}
+h2{font-family:'Playfair Display',serif;font-size:1.2rem;margin:24px 0 12px;color:#2d3340}
+</style></head><body><div class="page">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:2px solid #2d3340;margin-bottom:8px">
+        <div><div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:700">${bizName}</div></div>
+        <div style="text-align:right"><div style="font-size:11px;color:#6b7a86;text-transform:uppercase">Aylık Rapor</div><div style="font-size:1rem;font-weight:600;margin-top:2px">${monthLabel}</div><div style="font-size:12px;color:#6b7a86">${today}</div></div>
+    </div>
+    <div class="kpi">
+        <div class="kpi-item"><div class="kpi-label">Gelir</div><div class="kpi-value" style="color:#5f8076">${totalRev.toFixed(0)} ₺</div></div>
+        <div class="kpi-item"><div class="kpi-label">Gider</div><div class="kpi-value" style="color:#c0606a">${totalExp.toFixed(0)} ₺</div></div>
+        <div class="kpi-item"><div class="kpi-label">Net Kâr</div><div class="kpi-value" style="color:${totalRev-totalExp>=0?'#5f8076':'#c0606a'}">${(totalRev-totalExp).toFixed(0)} ₺</div></div>
+        <div class="kpi-item"><div class="kpi-label">Seans</div><div class="kpi-value">${monthSessions.length}</div></div>
+    </div>
+    <h2>💳 Ödemeler</h2>
+    <table><thead><tr><th>Danışan</th><th>Paket</th><th>Tarih</th><th>Yöntem</th><th>Tutar</th></tr></thead><tbody>
+    ${[...monthPayments].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(p => {
+        const c   = clients.find(c=>c.id===p.clientId);
+        const pkg = packages.find(pk=>pk.id===p.packageId);
+        return `<tr><td><strong>${c?.name||'—'}</strong></td><td style="color:#6b7a86">${pkg?.name||'—'}</td><td>${new Date(p.date).toLocaleDateString('tr-TR')}</td><td>${p.method||'—'}</td><td style="color:#5f8076;font-weight:600">${p.amount.toFixed(0)} ₺</td></tr>`;
+    }).join('')}
+    <tr style="font-weight:700;background:#f0ede6"><td colspan="4">TOPLAM</td><td style="color:#5f8076">${totalRev.toFixed(0)} ₺</td></tr>
+    </tbody></table>
+    <h2>💸 Giderler</h2>
+    ${monthExpenses.length ? `<table><thead><tr><th>Açıklama</th><th>Kategori</th><th>Tarih</th><th>Tutar</th></tr></thead><tbody>
+    ${monthExpenses.map(e => `<tr><td>${e.desc}</td><td style="color:#6b7a86">${e.category||'—'}</td><td>${new Date(e.date).toLocaleDateString('tr-TR')}</td><td style="color:#c0606a;font-weight:600">${e.amount.toFixed(0)} ₺</td></tr>`).join('')}
+    <tr style="font-weight:700;background:#f0ede6"><td colspan="3">TOPLAM</td><td style="color:#c0606a">${totalExp.toFixed(0)} ₺</td></tr>
+    </tbody></table>` : '<div style="padding:20px;color:#6b7a86;text-align:center">Bu ay gider kaydı yok</div>'}
+    <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e8e2db;font-size:11px;color:#9aa5ad;text-align:center">${bizName} · ${today}</div>
+</div>
+<div class="no-print" style="text-align:center;padding:16px;background:#f0ede8;border-top:1px solid #ddd8d2">
+    <button onclick="window.print()" style="padding:11px 28px;background:#5f8076;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;margin-right:8px">🖨️ PDF Kaydet</button>
+    <button onclick="window.close()" style="padding:11px 20px;background:#e8e2db;color:#2d3340;border:none;border-radius:8px;font-size:14px;cursor:pointer">Kapat</button>
+</div>
+</body></html>`;
+
+    const win = window.open('','_blank','width=900,height=700');
+    if (!win) { showNotification('Pop-up engellendi', 'warning'); return; }
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => win.print(), 900);
+}
+
+function generateYearlyReportPDF() {
+    const year    = document.getElementById('reportYearFilter')?.value;
+    if (!year) { showNotification('Yıl seçin', 'warning'); return; }
+    const profile = window._currentProfile || {};
+    const bizName = profile.businessName || 'İşletme';
+    const today   = new Date().toLocaleDateString('tr-TR');
+    const monthNames = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+
+    const yearPayments = payments.filter(p => p.date?.startsWith(year));
+    const yearSessions = sessions.filter(s => s.date?.startsWith(year) && s.status !== 'absent');
+    const totalRev     = yearPayments.reduce((s,p) => s+p.amount, 0);
+    const yearExp      = (typeof expenses !== 'undefined' ? expenses : []).filter(e => e.date?.startsWith(year));
+    const totalExp     = yearExp.reduce((s,e) => s+e.amount, 0);
+
+    const monthlyData = Array.from({length:12}, (_,i) => {
+        const m   = year + '-' + String(i+1).padStart(2,'0');
+        const rev = yearPayments.filter(p => p.date?.startsWith(m)).reduce((s,p) => s+p.amount, 0);
+        const exp = yearExp.filter(e => e.date?.startsWith(m)).reduce((s,e) => s+e.amount, 0);
+        const ses = yearSessions.filter(s => s.date?.startsWith(m)).length;
+        return { month: monthNames[i], rev, exp, net: rev-exp, ses };
+    });
+
+    const html = `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8">
+<title>Yıllık Rapor - ${year}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:#f5f3f0;color:#2d3340;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+@media print{body{background:white}.no-print{display:none!important}}
+.page{max-width:860px;margin:24px auto;background:white;padding:48px 56px;box-shadow:0 4px 24px rgba(0,0,0,.08);border-radius:8px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#2d3340;color:white;padding:9px 12px;text-align:left;font-weight:600;font-size:12px}
+td{padding:8px 12px;border-bottom:1px solid #e8e2db}tr:nth-child(even) td{background:#f7f5f1}
+.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#e8e2db;border-radius:8px;overflow:hidden;margin:24px 0}
+.kpi-item{background:white;padding:16px;text-align:center}
+.kpi-label{font-size:11px;color:#6b7a86;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.kpi-value{font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700}
+</style></head><body><div class="page">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:2px solid #2d3340;margin-bottom:8px">
+        <div><div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:700">${bizName}</div></div>
+        <div style="text-align:right"><div style="font-size:11px;color:#6b7a86;text-transform:uppercase">Yıllık Rapor</div><div style="font-size:1.5rem;font-weight:700;margin-top:2px">${year}</div><div style="font-size:12px;color:#6b7a86">${today}</div></div>
+    </div>
+    <div class="kpi">
+        <div class="kpi-item"><div class="kpi-label">Yıl Geliri</div><div class="kpi-value" style="color:#5f8076">${totalRev.toFixed(0)} ₺</div></div>
+        <div class="kpi-item"><div class="kpi-label">Yıl Gideri</div><div class="kpi-value" style="color:#c0606a">${totalExp.toFixed(0)} ₺</div></div>
+        <div class="kpi-item"><div class="kpi-label">Net Kâr</div><div class="kpi-value" style="color:${totalRev-totalExp>=0?'#5f8076':'#c0606a'}">${(totalRev-totalExp).toFixed(0)} ₺</div></div>
+        <div class="kpi-item"><div class="kpi-label">Toplam Seans</div><div class="kpi-value">${yearSessions.length}</div></div>
+    </div>
+    <table><thead><tr><th>Ay</th><th>Gelir</th><th>Gider</th><th>Net Kâr</th><th>Seans</th></tr></thead>
+    <tbody>
+    ${monthlyData.map(d => `<tr>
+        <td><strong>${d.month}</strong></td>
+        <td style="color:#5f8076">${d.rev>0?d.rev.toFixed(0)+' ₺':'—'}</td>
+        <td style="color:#c0606a">${d.exp>0?d.exp.toFixed(0)+' ₺':'—'}</td>
+        <td style="font-weight:600;color:${d.net>=0?'#5f8076':'#c0606a'}">${d.rev>0||d.exp>0?d.net.toFixed(0)+' ₺':'—'}</td>
+        <td>${d.ses>0?d.ses:'—'}</td>
+    </tr>`).join('')}
+    <tr style="font-weight:700;background:#f0ede6"><td>TOPLAM</td><td style="color:#5f8076">${totalRev.toFixed(0)} ₺</td><td style="color:#c0606a">${totalExp.toFixed(0)} ₺</td><td style="color:#5f8076">${(totalRev-totalExp).toFixed(0)} ₺</td><td>${yearSessions.length}</td></tr>
+    </tbody></table>
+    <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e8e2db;font-size:11px;color:#9aa5ad;text-align:center">${bizName} · ${today}</div>
+</div>
+<div class="no-print" style="text-align:center;padding:16px;background:#f0ede8;border-top:1px solid #ddd8d2">
+    <button onclick="window.print()" style="padding:11px 28px;background:#5f8076;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;margin-right:8px">🖨️ PDF Kaydet</button>
+    <button onclick="window.close()" style="padding:11px 20px;background:#e8e2db;color:#2d3340;border:none;border-radius:8px;font-size:14px;cursor:pointer">Kapat</button>
+</div></body></html>`;
+
+    const win = window.open('','_blank','width=900,height=700');
+    if (!win) { showNotification('Pop-up engellendi', 'warning'); return; }
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => win.print(), 900);
+}
+
+function generateClientReportPDF() {
+    const profile = window._currentProfile || {};
+    const bizName = profile.businessName || 'İşletme';
+    const today   = new Date().toLocaleDateString('tr-TR');
+
+    const rows = clients.map(c => {
+        const cSessions = sessions.filter(s => s.clientId === c.id && s.status !== 'absent');
+        const cAbsent   = sessions.filter(s => s.clientId === c.id && s.status === 'absent');
+        const cPackages = packages.filter(p => p.clientId === c.id);
+        const cPayments = payments.filter(p => p.clientId === c.id);
+        const totalPaid = cPayments.reduce((s,p) => s+p.amount, 0);
+        const totalDebt = cPackages.reduce((s,p) => s+Math.max(0,(p.price||0)-(p.paidAmount||0)), 0);
+        const ins       = cPackages[0]?.instructorId ? instructors.find(i => i.id === cPackages[0].instructorId) : null;
+        return { c, sessions: cSessions.length, absent: cAbsent.length, totalPaid, totalDebt, ins };
+    });
+
+    const html = `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8">
+<title>Danışan Raporu</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:#f5f3f0;color:#2d3340;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+@media print{body{background:white}.no-print{display:none!important}}
+.page{max-width:860px;margin:24px auto;background:white;padding:48px 56px;box-shadow:0 4px 24px rgba(0,0,0,.08);border-radius:8px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:#2d3340;color:white;padding:8px 10px;text-align:left;font-weight:600;font-size:11px}
+td{padding:7px 10px;border-bottom:1px solid #e8e2db}tr:nth-child(even) td{background:#f7f5f1}
+</style></head><body><div class="page">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:2px solid #2d3340;margin-bottom:20px">
+        <div><div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:700">${bizName}</div></div>
+        <div style="text-align:right"><div style="font-size:11px;color:#6b7a86;text-transform:uppercase">Danışan Raporu</div><div style="font-size:12px;color:#6b7a86;margin-top:2px">${today}</div></div>
+    </div>
+    <table><thead><tr><th>Danışan</th><th>Telefon</th><th>Eğitmen</th><th>Seans</th><th>Devamsız</th><th>Tahsilat</th><th>Borç</th></tr></thead>
+    <tbody>
+    ${rows.map(r => `<tr>
+        <td><strong>${r.c.name}</strong></td>
+        <td style="color:#6b7a86">${r.c.phone}</td>
+        <td style="color:#6b7a86">${r.ins ? r.ins.name : '—'}</td>
+        <td>${r.sessions}</td>
+        <td style="color:${r.absent>0?'#c0606a':'#6b7a86'}">${r.absent > 0 ? r.absent : '—'}</td>
+        <td style="color:#5f8076;font-weight:600">${r.totalPaid > 0 ? r.totalPaid.toFixed(0)+' ₺' : '—'}</td>
+        <td style="color:${r.totalDebt>0?'#c0606a':'#6b7a86'}">${r.totalDebt > 0 ? r.totalDebt.toFixed(0)+' ₺' : '—'}</td>
+    </tr>`).join('')}
+    </tbody></table>
+    <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e8e2db;font-size:11px;color:#9aa5ad;text-align:center">${bizName} · ${today} · Toplam ${clients.length} danışan</div>
+</div>
+<div class="no-print" style="text-align:center;padding:16px;background:#f0ede8;border-top:1px solid #ddd8d2">
+    <button onclick="window.print()" style="padding:11px 28px;background:#5f8076;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;margin-right:8px">🖨️ PDF Kaydet</button>
+    <button onclick="window.close()" style="padding:11px 20px;background:#e8e2db;color:#2d3340;border:none;border-radius:8px;font-size:14px;cursor:pointer">Kapat</button>
+</div></body></html>`;
+
+    const win = window.open('','_blank','width=900,height=700');
+    if (!win) { showNotification('Pop-up engellendi', 'warning'); return; }
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => win.print(), 900);
+}
+
+window.switchReportTab         = switchReportTab;
+window.initMonthFilter         = initMonthFilter;
+window.renderMonthlyReport     = renderMonthlyReport;
+window.initYearFilter          = initYearFilter;
+window.renderYearlyReport      = renderYearlyReport;
+window.renderClientReport      = renderClientReport;
+window.generateMonthlyReportPDF = generateMonthlyReportPDF;
+window.generateYearlyReportPDF  = generateYearlyReportPDF;
+window.generateClientReportPDF  = generateClientReportPDF;
