@@ -863,17 +863,25 @@ function openPaymentModal(packageId) {
     d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
     document.getElementById('paymentDate').value = d.toISOString().split('T')[0];
 
-    // editClientModal açıksa geçici olarak arkaya it
+    // editClientModal açıksa arkaya it, ödeme modalı üste gelsin
     const editModal = document.getElementById('editClientModal');
     if (editModal && editModal.classList.contains('active')) {
         editModal.style.zIndex = '500';
+        window._paymentFromDetailModal = true;
+    } else {
+        window._paymentFromDetailModal = false;
     }
 
-    document.getElementById('paymentModal').classList.add('active');
+    const payModal = document.getElementById('paymentModal');
+    if (payModal) {
+        payModal.style.zIndex = '2000';
+        payModal.classList.add('active');
+    }
 }
 
 function closePaymentModal() {
-    document.getElementById('paymentModal').classList.remove('active');
+    const payModal = document.getElementById('paymentModal');
+    if (payModal) { payModal.classList.remove('active'); payModal.style.zIndex = ''; }
     // editClientModal'ı geri getir
     const editModal = document.getElementById('editClientModal');
     if (editModal) editModal.style.zIndex = '';
@@ -901,21 +909,36 @@ async function savePayment() {
         return;
     }
 
+    // Döviz çevrimi - paidAmount her zaman paketin kendi dövizinde saklanır
+    // Eğer ödeme farklı para birimiyle yapıldıysa pakete göre normalize et
+    let amountInPkgCurrency = amount;
+    const pkgCur = pkg.priceCurrency || 'TRY';
+    if (payCurrency !== pkgCur) {
+        // Her ikisini TRY'ye çevir, sonra paket dövizine çevir
+        const payInTRY = payCurrency === 'TRY' ? amount :
+            (exchangeRates[payCurrency] ? amount / exchangeRates[payCurrency] : amount);
+        amountInPkgCurrency = pkgCur === 'TRY' ? payInTRY :
+            (exchangeRates[pkgCur] ? payInTRY * exchangeRates[pkgCur] : payInTRY);
+    }
+
     const payment = {
-        id: 'payment-' + Date.now(),
+        id:           'payment-' + Date.now(),
         packageId,
-        clientId: pkg.clientId,
+        clientId:     pkg.clientId,
         amount,
+        currency:     payCurrency,
+        amountInPkgCurrency,
+        pkgCurrency:  pkgCur,
         date,
         method,
-        createdAt: new Date().toISOString()
+        createdAt:    new Date().toISOString()
     };
 
     // 1) Ödemeyi Firestore'a yaz
     await upsertPayment(currentUser.uid, payment.id, payment);
 
-    // 2) Paketin paidAmount'unu Firestore'da güncelle
-    const newPaidAmount = (parseFloat(pkg.paidAmount) || 0) + amount;
+    // 2) Paketin paidAmount'unu pakete ait dövizde güncelle
+    const newPaidAmount = (parseFloat(pkg.paidAmount) || 0) + amountInPkgCurrency;
     await fbUpdatePackage(currentUser.uid, pkg.id, { paidAmount: newPaidAmount });
 
     // 3) Yeniden yükle
@@ -1197,7 +1220,7 @@ function openClientDetail(clientId) {
                 ${clientPayments.map(pay => `
                     <tr>
                         <td>${new Date(pay.date).toLocaleDateString('tr-TR')}</td>
-                        <td><strong style="color:var(--sage-dark)">+${pay.amount.toFixed(0)} ₺</strong></td>
+                        <td><strong style="color:var(--sage-dark)">+${pay.amount.toFixed(0)} ${pay.currency && pay.currency !== "TRY" ? pay.currency : "₺"}</strong></td>
                         <td>${pay.method || '—'}</td>
                     </tr>`).join('')}
                 </tbody>
@@ -1667,7 +1690,7 @@ function renderPaymentHistory() {
                             ${pay.method || '—'}
                         </span>
                     </td>
-                    <td style="text-align:right;"><strong style="color:var(--sage-dark);">+${pay.amount.toFixed(0)} ₺</strong></td>
+                    <td style="text-align:right;"><strong style="color:var(--sage-dark);">+${pay.amount.toFixed(0)} ${pay.currency && pay.currency !== "TRY" ? pay.currency : "₺"}</strong></td>
                     <td>
                         <button class="btn btn-ghost btn-xs" title="Makbuz"
                             onclick="if(window._payMap&&window._payMap[${i}]){const x=window._payMap[${i}];generateReceiptPDF(x.payment,x.client,x.pkg);}">
